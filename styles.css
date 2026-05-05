@@ -551,6 +551,12 @@ body.dark-mode .navbar {
     overflow: hidden;
 }
 
+.testimony-slider-wrapper {
+    position: relative;
+    max-width: 1300px;
+    margin: 0 auto;
+}
+
 .testimony-track {
     display: flex;
     transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
@@ -578,27 +584,30 @@ body.dark-mode .navbar {
 }
 
 .testimony-text {
-    font-size: clamp(1.5rem, 4vw, 2.8rem);
+    font-size: clamp(1.4rem, 3.5vw, 2.4rem);
     font-weight: 500;
-    margin-bottom: 3.5rem;
-    line-height: 1.4;
-    max-width: 900px;
+    margin-bottom: 2rem;
+    line-height: 1.5;
+    max-width: 850px;
     color: white;
+    font-style: italic;
+    opacity: 0.95;
 }
 
 .testimony-author {
-    font-size: clamp(1.8rem, 5vw, 3.5rem);
-    font-weight: 600;
+    font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: white;
+    letter-spacing: 0.15em;
+    color: var(--accent-color, #f59e0b); /* Use accent color to make it pop */
+    margin-top: 0;
 }
 
 .testimony-controls {
     position: absolute;
     top: 50%;
-    left: -80px;
-    right: -80px;
+    left: 0;
+    right: 0;
     transform: translateY(-50%);
     display: flex;
     justify-content: space-between;
@@ -606,10 +615,8 @@ body.dark-mode .navbar {
     z-index: 10;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1300px) {
     .testimony-controls {
-        left: 0;
-        right: 0;
         padding: 0 1rem;
     }
 }
