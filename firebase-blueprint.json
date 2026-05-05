@@ -1,0 +1,170 @@
+{
+  "entities": {
+    "ThemeSettings": {
+      "title": "Theme Settings",
+      "description": "Global theme and branding settings",
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "enum": ["light", "dark"] },
+        "primaryColor": { "type": "string" },
+        "secondaryColor": { "type": "string" },
+        "accentColor": { "type": "string" },
+        "heroMode": { "type": "string", "enum": ["single", "collage", "slideshow"] },
+        "heroImages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string" },
+              "link": { "type": "string" }
+            }
+          }
+        },
+        "heroText": { "type": "string" },
+        "heroSubtext": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "faviconUrl": { "type": "string" },
+        "livestreamUrl": { "type": "string" },
+        "sermonBackground": { "type": "string" },
+        "testimonyBackground": { "type": "string" }
+      },
+      "required": ["primaryColor", "logoUrl"]
+    },
+    "AboutContent": {
+      "title": "About Content",
+      "description": "Content for the about section",
+      "type": "object",
+      "properties": {
+        "mission": { "type": "string" },
+        "missionImage": { "type": "string" },
+        "vision": { "type": "string" },
+        "visionImage": { "type": "string" },
+        "welcomeMessage": { "type": "string" },
+        "welcomeImage": { "type": "string" }
+      }
+    },
+    "ServiceSchedule": {
+      "title": "Service Schedule",
+      "description": "Weekly service times and descriptions",
+      "type": "object",
+      "properties": {
+        "sunday1": { "$ref": "ServiceInfo" },
+        "sunday2": { "$ref": "ServiceInfo" },
+        "sunday3": { "$ref": "ServiceInfo" },
+        "sunday4": { "$ref": "ServiceInfo" },
+        "midweek": { "$ref": "ServiceInfo" },
+        "special": { "$ref": "ServiceInfo" }
+      }
+    },
+    "ServiceInfo": {
+      "title": "Service Info",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "time": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "ContactInfo": {
+      "title": "Contact Info",
+      "description": "Contact details and offering accounts",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "offeringAccounts": {
+          "type": "array",
+          "items": { "$ref": "OfferingAccount" }
+        }
+      }
+    },
+    "OfferingAccount": {
+      "title": "Offering Account",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "bank": { "type": "string" },
+        "accountName": { "type": "string" },
+        "accountNumber": { "type": "string" }
+      }
+    },
+    "Sermon": {
+      "title": "Sermon",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "videoUrl": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "Event": {
+      "title": "Event",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" }
+      }
+    },
+    "Testimony": {
+      "title": "Testimony",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "message": { "type": "string" },
+        "approved": { "type": "boolean" },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Message": {
+      "title": "Message",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Quote": {
+      "title": "Quote",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["text", "image", "both"] },
+        "text": { "type": "string" },
+        "author": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Moment": {
+      "title": "Moment",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["photo", "video"] },
+        "url": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/settings/theme": { "schema": "ThemeSettings", "description": "Global theme settings" },
+    "/content/about": { "schema": "AboutContent", "description": "About section content" },
+    "/services/schedule": { "schema": "ServiceSchedule", "description": "Weekly service schedule" },
+    "/content/contact": { "schema": "ContactInfo", "description": "Contact and offering info" },
+    "/sermons/{sermonId}": { "schema": "Sermon", "description": "Church sermons" },
+    "/events/{eventId}": { "schema": "Event", "description": "Upcoming events" },
+    "/testimonies/{testimonyId}": { "schema": "Testimony", "description": "Member testimonies" },
+    "/messages/{messageId}": { "schema": "Message", "description": "Contact form messages" },
+    "/quotes/{quoteId}": { "schema": "Quote", "description": "Daily quotes" },
+    "/moments/{momentId}": { "schema": "Moment", "description": "Church moments (photos/videos)" }
+  }
+}

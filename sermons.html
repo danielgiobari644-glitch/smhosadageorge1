@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        console.error('GLOBAL ERROR:', msg, 'at', url, ':', line, ':', col, error);
+        return false;
+      };
+      window.onunhandledrejection = function(event) {
+        console.error('UNHANDLED REJECTION:', event.reason);
+      };
+    </script>
+    <title>Sermons - Salvation Ministries Ada George</title>
+    <link rel="icon" type="image/png" href="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=64&q=80">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-logo">
+                <img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=200&q=80" alt="Salvation Ministries Logo">
+                <span>Salvation Ministries</span>
+            </a>
+            <button class="mobile-toggle" id="mobileToggle">
+                <i data-lucide="menu"></i>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html#home" class="nav-link">Home</a></li>
+                <li><a href="index.html#about" class="nav-link">About</a></li>
+                <li><a href="sermons.html" class="nav-link active">Sermons</a></li>
+                <li><a href="index.html#events" class="nav-link">Events</a></li>
+                <li><a href="index.html#testimonies" class="nav-link">Testimonies</a></li>
+                <li><a href="index.html#contact" class="nav-link">Contact</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header (Match Design Image 1) -->
+    <section class="sermon-teaser" id="sermonHeader">
+        <div class="container">
+            <span class="teaser-label">SERMONS</span>
+            <h2>Listen to God's Word for You.</h2>
+            <div class="teaser-btns">
+                <a href="https://www.youtube.com/@SalvationMinistries" target="_blank" class="btn btn-red">Watch Sermon</a>
+                <a href="#sermonsGrid" class="btn btn-all-sermons">All Sermons</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sermons List -->
+    <section class="sermons-page-content">
+        <div class="container">
+            <div id="sermonsSearch" class="search-box">
+               <input type="text" id="sermonSearchInput" placeholder="Search sermons by title or topic...">
+            </div>
+
+            <div class="empty-state" id="sermonsEmpty">
+                <p>No sermons available yet. Check back soon!</p>
+            </div>
+            
+            <div class="grid" id="sermonsGrid">
+                <!-- Sermons will be loaded here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-logo">
+                <img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=200&q=80" alt="Salvation Ministries Logo" style="width: 40px; border-radius: 8px;">
+                <span>Salvation Ministries</span>
+            </div>
+            <p>&copy; 2026 Salvation Ministries Ada George. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" crossorigin></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js" crossorigin></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js" crossorigin></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@0.475.0/dist/umd/lucide.js" crossorigin></script>
+    
+    <!-- App Scripts -->
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
