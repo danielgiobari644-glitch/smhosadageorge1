@@ -132,56 +132,58 @@ async function loadThemeSettings() {
             const heroSubtext = document.getElementById('heroSubtext');
             
             if (heroBackground) {
-                heroBackground.innerHTML = '';
                 const mode = theme.heroMode || 'collage';
-                const items = theme.heroImages || [];
+                const items = (theme.heroImages || []).filter(img => img && img.url);
                 
-                if (mode === 'single' && items.length > 0) {
-                    const img = items[0];
-                    heroBackground.innerHTML = `
-                        <div class="hero-single" style="background-image: url('${img.url}')"></div>
-                    `;
-                } else if (mode === 'collage' && items.length > 0) {
-                    const collage = document.createElement('div');
-                    collage.className = 'hero-collage';
-                    // Show up to 8 images as defined in CSS
-                    items.slice(0, 8).forEach(img => {
-                        const item = document.createElement('a');
-                        item.href = img.link || '#';
-                        item.className = 'hero-collage-item';
-                        item.style.backgroundImage = `url('${img.url}')`;
-                        collage.appendChild(item);
-                    });
-                    heroBackground.appendChild(collage);
-                } else if (mode === 'slideshow' && items.length > 0) {
-                    const slideshow = document.createElement('div');
-                    slideshow.className = 'hero-slideshow';
-                    items.forEach((img, index) => {
-                        const slide = document.createElement('a');
-                        slide.href = img.link || '#';
-                        slide.className = `hero-slide ${index === 0 ? 'active' : ''}`;
-                        slide.style.backgroundImage = `url('${img.url}')`;
-                        slideshow.appendChild(slide);
-                    });
-                    heroBackground.appendChild(slideshow);
-                    
-                    if (items.length > 1) {
-                        let currentSlide = 0;
-                        heroInterval = setInterval(() => {
-                            const slides = slideshow.querySelectorAll('.hero-slide');
-                            if (slides.length > 0) {
-                                slides[currentSlide].classList.remove('active');
-                                currentSlide = (currentSlide + 1) % slides.length;
-                                slides[currentSlide].classList.add('active');
-                            }
-                        }, 5000);
+                if (items.length > 0) {
+                    heroBackground.innerHTML = '';
+                    if (mode === 'single') {
+                        const img = items[0];
+                        heroBackground.innerHTML = `
+                            <div class="hero-single" style="background-image: url('${img.url}')"></div>
+                        `;
+                    } else if (mode === 'collage') {
+                        const collage = document.createElement('div');
+                        collage.className = 'hero-collage';
+                        items.slice(0, 8).forEach(img => {
+                            const item = document.createElement('a');
+                            item.href = img.link || '#';
+                            item.className = 'hero-collage-item';
+                            item.style.backgroundImage = `url('${img.url}')`;
+                            collage.appendChild(item);
+                        });
+                        heroBackground.appendChild(collage);
+                    } else if (mode === 'slideshow') {
+                        const slideshow = document.createElement('div');
+                        slideshow.className = 'hero-slideshow';
+                        items.forEach((img, index) => {
+                            const slide = document.createElement('a');
+                            slide.href = img.link || '#';
+                            slide.className = `hero-slide ${index === 0 ? 'active' : ''}`;
+                            slide.style.backgroundImage = `url('${img.url}')`;
+                            slideshow.appendChild(slide);
+                        });
+                        heroBackground.appendChild(slideshow);
+                        
+                        if (items.length > 1) {
+                            let currentSlide = 0;
+                            heroInterval = setInterval(() => {
+                                const slides = slideshow.querySelectorAll('.hero-slide');
+                                if (slides.length > 0) {
+                                    slides[currentSlide].classList.remove('active');
+                                    currentSlide = (currentSlide + 1) % slides.length;
+                                    slides[currentSlide].classList.add('active');
+                                }
+                            }, 5000);
+                        }
                     }
                 } else if (theme.heroImage) {
-                    // Fallback for singular image
                     heroBackground.innerHTML = `
                         <div class="hero-single" style="background-image: url('${theme.heroImage}')"></div>
                     `;
                 }
+                // If everything is empty, heroBackground remains as it is in HTML (empty), 
+                // letting the CSS background of .hero show through.
             }
             
             if (heroTitle && theme.heroText) heroTitle.textContent = theme.heroText;

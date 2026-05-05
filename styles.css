@@ -162,6 +162,9 @@ body.dark-mode .navbar {
     overflow: hidden;
     color: white;
     background-color: #000;
+    background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://images.unsplash.com/photo-1438032005730-c779502df39b?w=1600&q=80');
+    background-size: cover;
+    background-position: center;
 }
 
 .hero-background {
@@ -265,7 +268,7 @@ body.dark-mode .navbar {
 }
 
 .hero-collage-item {
-    background-size: contain;
+    background-size: cover;
     background-repeat: no-repeat;
     background-position: center;
     background-color: #000;
@@ -296,6 +299,13 @@ body.dark-mode .navbar {
     width: 100%;
     height: 100%;
     position: relative;
+}
+
+.hero-single {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
 }
 
 .hero-slide {
@@ -397,6 +407,7 @@ body.dark-mode .navbar {
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
+    background-image: url('https://images.unsplash.com/photo-1438032005730-c779502df39b?w=1600&q=80');
     color: white;
     text-align: left;
 }
