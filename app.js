@@ -238,13 +238,15 @@ async function loadAboutContent() {
             const visionImg = document.getElementById('visionImage');
             const welcomeImg = document.getElementById('welcomeImage');
             
+            const DEFAULT_CHURCH_IMG = 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=1200&q=80';
+
             if (missionText && content.mission) missionText.textContent = content.mission;
             if (visionText && content.vision) visionText.textContent = content.vision;
             if (welcomeText && content.welcomeMessage) welcomeText.textContent = content.welcomeMessage;
             
-            if (missionImg && content.missionImage) missionImg.src = content.missionImage;
-            if (visionImg && content.visionImage) visionImg.src = content.visionImage;
-            if (welcomeImg && content.welcomeImage) welcomeImg.src = content.welcomeImage;
+            if (missionImg) missionImg.src = content.missionImage || DEFAULT_CHURCH_IMG;
+            if (visionImg) visionImg.src = content.visionImage || DEFAULT_CHURCH_IMG;
+            if (welcomeImg) welcomeImg.src = content.welcomeImage || DEFAULT_CHURCH_IMG;
         }
     } catch (error) {
         console.error('Error loading about content:', error);
@@ -731,12 +733,23 @@ async function loadTestimonies() {
 function setupTestimonySlider() {
     const prevBtn = document.getElementById('testimonyPrev');
     const nextBtn = document.getElementById('testimonyNext');
-    
-    if (prevBtn) prevBtn.onclick = () => moveTestimonySlide(-1);
-    if (nextBtn) nextBtn.onclick = () => moveTestimonySlide(1);
+    let testimonyInterval;
 
-    // Auto slide
-    setInterval(() => moveTestimonySlide(1), 8000);
+    const startAutoSlide = () => {
+        if (testimonyInterval) clearInterval(testimonyInterval);
+        testimonyInterval = setInterval(() => moveTestimonySlide(1), 10000);
+    };
+
+    if (prevBtn) prevBtn.onclick = () => {
+        moveTestimonySlide(-1);
+        startAutoSlide();
+    };
+    if (nextBtn) nextBtn.onclick = () => {
+        moveTestimonySlide(1);
+        startAutoSlide();
+    };
+
+    startAutoSlide();
 }
 
 function moveTestimonySlide(direction) {

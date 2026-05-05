@@ -70,25 +70,28 @@ const OperationType = {
 function handleFirestoreError(error, operationType, path) {
   const auth = (typeof firebase !== 'undefined' && typeof firebase.auth === 'function') ? firebase.auth() : null;
   const errInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: (error && typeof error === 'object' && error.message) ? String(error.message) : String(error),
     authInfo: auth ? {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
+      userId: auth.currentUser?.uid || null,
+      email: auth.currentUser?.email || null,
+      emailVerified: auth.currentUser?.emailVerified || null,
+      isAnonymous: auth.currentUser?.isAnonymous || null,
     } : { note: "Auth SDK not loaded or available" },
-    operationType,
-    path
+    operationType: String(operationType),
+    path: String(path)
   };
   
   let errString;
   try {
+    // Only stringify if we are sure there are no circular refs
+    // We already simplified the object fields above
     errString = JSON.stringify(errInfo);
   } catch (e) {
-    errString = `Firestore Error: ${errInfo.error} | Operation: ${operationType} | Path: ${path}`;
+    console.warn('Failed to stringify Firestore error info, falling back to basic string', e);
+    errString = `{"error":"${errInfo.error.replace(/"/g, '\\"')}", "operationType":"${operationType}", "path":"${path}"}`;
   }
   
-  console.error('Firestore Error Details:', errString);
+  console.error('Firestore Error Status:', errString);
   throw new Error(errString);
 }
 

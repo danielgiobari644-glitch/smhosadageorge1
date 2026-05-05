@@ -211,30 +211,37 @@ body.dark-mode .navbar {
     position: relative;
     z-index: 10;
     height: 100%;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     text-align: center;
-    padding: 0 20px;
+    padding: 0 var(--spacing-lg);
 }
 
 .hero-title {
     font-family: var(--font-display);
-    font-size: clamp(2.5rem, 8vw, 5rem);
+    font-size: clamp(3rem, 8vw, 5.5rem);
     font-weight: 800;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
     letter-spacing: -0.03em;
-    line-height: 1.1;
-    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    line-height: 1;
+    text-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
 .hero-subtitle {
-    font-size: clamp(1.2rem, 3vw, 2rem);
+    font-size: clamp(1.1rem, 2.5vw, 1.75rem);
     opacity: 0.95;
-    margin-bottom: 2.5rem;
-    font-weight: 500;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    margin-bottom: 3.5rem;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+    font-weight: 400;
+    line-height: 1.5;
+    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .hero-btns {
@@ -345,36 +352,7 @@ body.dark-mode .navbar {
     opacity: 1;
 }
 
-.hero-content {
-    position: relative;
-    z-index: 10;
-    width: 100%;
-    max-width: 900px;
-    margin: 0 auto;
-    text-align: center;
-    padding: 0 var(--spacing-lg);
-}
-
-.hero-title {
-    font-family: var(--font-display);
-    font-size: clamp(3rem, 8vw, 5rem);
-    font-weight: 800;
-    margin-bottom: 1.5rem;
-    letter-spacing: -0.03em;
-    line-height: 1;
-    text-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-
-.hero-subtitle {
-    font-size: 1.25rem;
-    opacity: 0.9;
-    margin-bottom: 3rem;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-    font-weight: 400;
-    line-height: 1.6;
-}
+/* Hero Content consolidated above */
 
 .hero-btns {
     display: flex;
@@ -551,6 +529,19 @@ body.dark-mode .navbar {
     position: relative;
     z-index: 2;
     width: 100%;
+    max-width: 1200px;
+}
+
+.testimonies-section .section-header {
+    margin-bottom: 6rem;
+}
+
+.testimonies-section .section-title {
+    color: white;
+}
+
+.testimonies-section .section-subtitle {
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .testimony-slider {
@@ -574,11 +565,11 @@ body.dark-mode .navbar {
 }
 
 .testimony-text {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    font-weight: 600;
+    font-size: clamp(1.8rem, 4.5vw, 3rem);
+    font-weight: 500;
     margin-bottom: 4rem;
-    line-height: 1.3;
-    max-width: 1000px;
+    line-height: 1.4;
+    max-width: 950px;
 }
 
 .testimony-author {
