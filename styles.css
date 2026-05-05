@@ -548,6 +548,7 @@ body.dark-mode .navbar {
     position: relative;
     max-width: 1100px;
     margin: 0 auto;
+    overflow: hidden;
 }
 
 .testimony-track {
@@ -557,26 +558,40 @@ body.dark-mode .navbar {
 
 .testimony-slide {
     min-width: 100%;
-    padding: 0 50px;
+    flex-shrink: 0;
+    padding: 0 100px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    text-align: center;
+}
+
+.testimony-quote-icon {
+    margin-bottom: 2rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.testimony-quote-icon i {
+    width: 60px;
+    height: 60px;
 }
 
 .testimony-text {
-    font-size: clamp(1.8rem, 4.5vw, 3rem);
+    font-size: clamp(1.5rem, 4vw, 2.8rem);
     font-weight: 500;
-    margin-bottom: 4rem;
+    margin-bottom: 3.5rem;
     line-height: 1.4;
-    max-width: 950px;
+    max-width: 900px;
+    color: white;
 }
 
 .testimony-author {
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-size: clamp(1.8rem, 5vw, 3.5rem);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
+    color: white;
 }
 
 .testimony-controls {

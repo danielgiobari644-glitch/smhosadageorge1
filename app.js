@@ -715,11 +715,20 @@ async function loadTestimonies() {
                 const slide = document.createElement('div');
                 slide.className = 'testimony-slide';
                 slide.innerHTML = `
-                    <p class="testimony-text">"${testimony.message}"</p>
+                    <div class="testimony-quote-icon">
+                        <i data-lucide="quote"></i>
+                    </div>
+                    <p class="testimony-text">${testimony.message}</p>
                     <div class="testimony-author">${testimony.name}</div>
                 `;
                 testimoniesGrid.appendChild(slide);
             });
+            
+            // Re-initialize Lucide icons for the new content
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+            
             setupTestimonySlider();
         } else {
             testimoniesEmpty.style.display = 'block';
