@@ -80,8 +80,16 @@ function handleFirestoreError(error, operationType, path) {
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  
+  let errString;
+  try {
+    errString = JSON.stringify(errInfo);
+  } catch (e) {
+    errString = `Firestore Error: ${errInfo.error} | Operation: ${operationType} | Path: ${path}`;
+  }
+  
+  console.error('Firestore Error Details:', errString);
+  throw new Error(errString);
 }
 
 // Global Error Catching
@@ -151,7 +159,7 @@ async function initializeDefaultData() {
         accentColor: '#f59e0b',
         heroMode: 'collage',
         heroImages: [
-          { url: 'https://images.unsplash.com/photo-1438032005730-c779502df39b?w=1200&q=80', link: '#' },
+          { url: 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=1600&q=80', link: '#' },
           { url: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1200&q=80', link: '#' },
           { url: 'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=1200&q=80', link: '#' },
           { url: 'https://images.unsplash.com/photo-1510076857177-7470076d4098?w=1200&q=80', link: '#' },
@@ -165,7 +173,7 @@ async function initializeDefaultData() {
         logoUrl: 'https://images.unsplash.com/photo-1438032005730-c779502df39b?w=200&q=80',
         faviconUrl: 'https://images.unsplash.com/photo-1438032005730-c779502df39b?w=64&q=80',
         livestreamUrl: 'https://www.youtube.com/@SalvationMinistries',
-        sermonBackground: 'https://images.unsplash.com/photo-1507679799987-c7377f323b88?w=1600&q=80',
+        sermonBackground: 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=1600&q=80',
         testimonyBackground: 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=1600&q=80'
       });
 

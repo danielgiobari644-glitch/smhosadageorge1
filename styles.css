@@ -153,6 +153,27 @@ body.dark-mode .navbar {
     width: 100%;
 }
 
+.btn-give-online {
+    background: transparent;
+    color: white;
+    padding: 0.6rem 1.8rem;
+    border: 1.5px solid white;
+    border-radius: 50px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.btn-give-online:hover {
+    background: white;
+    color: black;
+}
+
 /* Hero Section */
 .hero {
     position: relative;
@@ -162,7 +183,7 @@ body.dark-mode .navbar {
     overflow: hidden;
     color: white;
     background-color: #000;
-    background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://images.unsplash.com/photo-1438032005730-c779502df39b?w=1600&q=80');
+    background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=1600&q=80');
     background-size: cover;
     background-position: center;
 }
@@ -326,8 +347,11 @@ body.dark-mode .navbar {
 
 .hero-content {
     position: relative;
-    z-index: 2;
-    max-width: 800px;
+    z-index: 10;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
     padding: 0 var(--spacing-lg);
 }
 
@@ -407,7 +431,7 @@ body.dark-mode .navbar {
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
-    background-image: url('https://images.unsplash.com/photo-1438032005730-c779502df39b?w=1600&q=80');
+    background-image: url('https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=1600&q=80');
     color: white;
     text-align: left;
 }
@@ -506,6 +530,7 @@ body.dark-mode .navbar {
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
+    background-image: url('https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=1600&q=80');
     color: white;
     text-align: center;
     overflow: hidden;
