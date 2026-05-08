@@ -216,7 +216,7 @@ async function loadThemeSettings() {
             }
         }
     } catch (error) {
-        console.error('Error loading theme settings:', error);
+        console.error('Error loading theme settings:', error.message || error);
     }
 }
 
@@ -249,7 +249,7 @@ async function loadAboutContent() {
             if (welcomeImg) welcomeImg.src = content.welcomeImage || DEFAULT_CHURCH_IMG;
         }
     } catch (error) {
-        console.error('Error loading about content:', error);
+        console.error('Error loading about content:', error.message || error);
     }
 }
 
@@ -295,7 +295,7 @@ async function loadQuotes() {
             container.innerHTML = '<p>The word of God is a lamp unto my feet and a light unto my path.</p><cite>— Psalm 119:105</cite>';
         }
     } catch (error) {
-        console.error('Error loading quotes:', error);
+        console.error('Error loading quotes:', error.message || error);
     }
 }
 
@@ -343,7 +343,7 @@ async function loadServiceTimes() {
             }
         }
     } catch (error) {
-        console.error('Error loading service times:', error);
+        console.error('Error loading service times:', error.message || error);
     }
 }
 
@@ -389,7 +389,7 @@ async function loadSermons() {
             sermonsGrid.innerHTML = '';
         }
     } catch (error) {
-        console.error('Error loading sermons:', error);
+        console.error('Error loading sermons:', error.message || error);
     }
 }
 
@@ -485,7 +485,7 @@ async function loadEvents() {
             eventsGrid.innerHTML = '<div class="event-poster-item"><img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=800&q=80" alt="No Events"></div>';
         }
     } catch (error) {
-        console.error('Error loading events:', error);
+        console.error('Error loading events:', error.message || error);
     }
 }
 
@@ -615,7 +615,7 @@ async function loadMoments() {
             if (window.lucide) lucide.createIcons();
         }
     } catch (error) {
-        console.error('Error loading moments:', error);
+        console.error('Error loading moments:', error.message || error);
     }
 }
 
@@ -735,7 +735,7 @@ async function loadTestimonies() {
             testimoniesGrid.innerHTML = '';
         }
     } catch (error) {
-        console.error('Error loading testimonies:', error);
+        console.error('Error loading testimonies:', error.message || error);
     }
 }
 
@@ -789,7 +789,7 @@ async function loadContactInfo() {
             if (addressEl && contact.address) addressEl.textContent = contact.address;
         }
     } catch (error) {
-        console.error('Error loading contact info:', error);
+        console.error('Error loading contact info:', error.message || error);
     }
 }
 
@@ -876,7 +876,7 @@ async function loadOfferingDetails() {
             }
         }
     } catch (error) {
-        console.error('Error loading offering details:', error);
+        console.error('Error loading offering details:', error.message || error);
     }
 }
 
@@ -927,7 +927,7 @@ function setupTestimonyForm() {
             form.reset();
             showFeedback(feedback, 'Thank you! Your testimony has been submitted and is awaiting approval.', 'success');
         } catch (error) {
-            console.error('Error submitting testimony:', error);
+            console.error('Error submitting testimony:', error.message || error);
             showFeedback(feedback, 'An error occurred. Please try again later.', 'error');
         }
     });
@@ -964,7 +964,7 @@ function setupContactForm() {
             form.reset();
             showFeedback(feedback, 'Thank you for your message! We will get back to you soon.', 'success');
         } catch (error) {
-            console.error('Error submitting contact form:', error);
+            console.error('Error submitting contact form:', error.message || error);
             showFeedback(feedback, 'An error occurred. Please try again later.', 'error');
         }
     });

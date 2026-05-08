@@ -1,12 +1,13 @@
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyBGDT1IZGFR0ravirAC-jpcuj4Y9Uuipks",
-  authDomain: "adageorge-35236.firebaseapp.com",
-  projectId: "adageorge-35236",
-  storageBucket: "adageorge-35236.firebasestorage.app",
-  messagingSenderId: "397933347333",
-  appId: "1:397933347333:web:316bacd8dc69b56f7fd26c",
-  measurementId: "G-6PPH3KWEXY"
+  projectId: "gen-lang-client-0338882324",
+  appId: "1:953395311086:web:51769bc2208f7de0ca1eff",
+  apiKey: "AIzaSyAgW-zEIRJbg3CeIRgtAqq6cOFuCUZPwX0",
+  authDomain: "gen-lang-client-0338882324.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-51d4f350-8b34-4deb-a1fd-c52ee08a6dbc",
+  storageBucket: "gen-lang-client-0338882324.firebasestorage.app",
+  messagingSenderId: "953395311086",
+  measurementId: ""
 };
 
 // Database Collections
@@ -27,30 +28,37 @@ const Collections = {
 console.log("Connecting to Firebase project:", firebaseConfig.projectId);
 const app = firebase.initializeApp(firebaseConfig);
 
-// Initialize Firestore
+// Initialize Firestore with robust logic for named databases
 let db;
 try {
-  console.log("Attempting Firestore initialization with database ID:", firebaseConfig.firestoreDatabaseId);
-  if (firebaseConfig.firestoreDatabaseId) {
-    // Try multiple patterns common in compat SDKs
-    try {
-      db = firebase.app().firestore(firebaseConfig.firestoreDatabaseId);
-      console.log("Firestore initialized using firebase.app().firestore(id)");
-    } catch (innerE) {
-      console.warn("firebase.app().firestore(id) failed, trying firebase.firestore(app, id)");
-      db = firebase.firestore(app, firebaseConfig.firestoreDatabaseId);
-      console.log("Firestore initialized using firebase.firestore(app, id)");
-    }
+  const dbId = firebaseConfig.firestoreDatabaseId;
+  console.log("Requested Firestore Database ID:", dbId);
+  
+  if (dbId && dbId !== '(default)') {
+    // In v9 compat, app.firestore(dbId) is the correct way
+    db = app.firestore(dbId);
+    console.log("Firestore instance created for named database:", dbId);
   } else {
-    db = firebase.firestore();
+    // Fallback if no specific ID or explicitly default
+    db = app.firestore();
+    console.log("Firestore instance created for default database");
   }
 } catch (e) {
-  console.warn("All named database initialization attempts failed:", e.message);
-  db = firebase.firestore();
+  console.error("CRITICAL: Firestore initialization failed:", e.message);
+  // Re-throw or handle as terminal error if database doesn't exist
+  throw new Error("Failed to initialize Firestore: " + e.message);
 }
 
+// Log internal database ID to verify connection target
+try {
+  const actualDbId = db._databaseId ? db._databaseId.database : (db.databaseId || 'unknown');
+  console.log("Active Firestore Database ID:", actualDbId);
+  if (actualDbId === '(default)' && firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)') {
+    console.error("MISCONFIGURATION: SDK is targeting (default) but config requested", firebaseConfig.firestoreDatabaseId);
+  }
+} catch (e) {}
+
 db.settings({ 
-  experimentalForceLongPolling: true,
   cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
 });
 // Remove network toggle as it can disrupt initialization for custom databases
@@ -68,30 +76,39 @@ const OperationType = {
 
 // Robust Firestore Error Handler
 function handleFirestoreError(error, operationType, path) {
+  let errorMessage = 'Unknown error';
+  if (error) {
+    if (typeof error === 'string') errorMessage = error;
+    else if (error.message) errorMessage = String(error.message);
+    else if (error.code) errorMessage = `Firebase Error [${error.code}]`;
+    else errorMessage = String(error);
+  }
+  
   const auth = (typeof firebase !== 'undefined' && typeof firebase.auth === 'function') ? firebase.auth() : null;
+  const user = auth ? auth.currentUser : null;
+  
+  // Create a clean object with NO circular references
   const errInfo = {
-    error: (error && typeof error === 'object' && error.message) ? String(error.message) : String(error),
-    authInfo: auth ? {
-      userId: auth.currentUser?.uid || null,
-      email: auth.currentUser?.email || null,
-      emailVerified: auth.currentUser?.emailVerified || null,
-      isAnonymous: auth.currentUser?.isAnonymous || null,
-    } : { note: "Auth SDK not loaded or available" },
-    operationType: String(operationType),
-    path: String(path)
+    error: errorMessage,
+    operationType: String(operationType || 'unknown'),
+    path: String(path || 'unknown'),
+    authInfo: user ? {
+      userId: String(user.uid),
+      email: String(user.email || ''),
+      emailVerified: !!user.emailVerified
+    } : null,
+    timestamp: new Date().toISOString()
   };
   
   let errString;
   try {
-    // Only stringify if we are sure there are no circular refs
-    // We already simplified the object fields above
     errString = JSON.stringify(errInfo);
   } catch (e) {
-    console.warn('Failed to stringify Firestore error info, falling back to basic string', e);
-    errString = `{"error":"${errInfo.error.replace(/"/g, '\\"')}", "operationType":"${operationType}", "path":"${path}"}`;
+    // Ultimate fallback if JSON.stringify still fails
+    errString = `{"error":"${errorMessage.replace(/"/g, '\\"')}", "operationType":"${operationType}", "path":"${path}", "auth":${!!user}}`;
   }
   
-  console.error('Firestore Error Status:', errString);
+  console.error('Firestore Error Status (JSON):', errString);
   throw new Error(errString);
 }
 
@@ -105,7 +122,7 @@ window.addEventListener('error', function(event) {
 });
 
 window.addEventListener('unhandledrejection', function(event) {
-    console.error('Captured Unhandled Rejection:', event.reason);
+    console.error('Captured Unhandled Rejection:', event.reason?.message || event.reason);
 });
 
 // Test connection to Firestore
@@ -269,16 +286,16 @@ async function initializeDefaultData() {
         password: 'admin123' // In production, this should be hashed
       });
 
-      console.log('Default data initialized successfully');
-    }
-    
-    // Mark initialization as complete
-    window.firebaseInitialized = true;
-    console.log('Firebase initialization complete');
-  } catch (error) {
-    console.error('Error initializing default data:', error);
-    window.firebaseInitialized = true; // Still mark as initialized to allow login attempts
+    console.log('Default data initialized successfully');
   }
+  
+  // Mark initialization as complete
+  window.firebaseInitialized = true;
+  console.log('Firebase initialization complete');
+} catch (error) {
+  console.error('Error initializing default data:', error.message || error);
+  window.firebaseInitialized = true; // Still mark as initialized to allow login attempts
+}
 }
 
 // Call initialization on load

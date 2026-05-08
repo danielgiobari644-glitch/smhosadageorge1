@@ -129,8 +129,8 @@ function setupLogin() {
                 showFeedback(loginFeedback, 'Invalid username or password', 'error');
             }
         } catch (error) {
-            console.error('Login error:', error);
-            showFeedback(loginFeedback, `Error: ${error.message}. Please try again.`, 'error');
+            console.error('Login error:', error.message || error);
+            showFeedback(loginFeedback, `Error: ${error.message || 'Unknown error'}. Please try again.`, 'error');
         }
     });
 }
