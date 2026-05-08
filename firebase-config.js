@@ -1,13 +1,12 @@
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  projectId: "gen-lang-client-0338882324",
-  appId: "1:953395311086:web:51769bc2208f7de0ca1eff",
-  apiKey: "AIzaSyAgW-zEIRJbg3CeIRgtAqq6cOFuCUZPwX0",
-  authDomain: "gen-lang-client-0338882324.firebaseapp.com",
-  firestoreDatabaseId: "ai-studio-51d4f350-8b34-4deb-a1fd-c52ee08a6dbc",
-  storageBucket: "gen-lang-client-0338882324.firebasestorage.app",
-  messagingSenderId: "953395311086",
-  measurementId: ""
+  apiKey: "AIzaSyBGDT1IZGFR0ravirAC-jpcuj4Y9Uuipks",
+  authDomain: "adageorge-35236.firebaseapp.com",
+  projectId: "adageorge-35236",
+  storageBucket: "adageorge-35236.firebasestorage.app",
+  messagingSenderId: "397933347333",
+  appId: "1:397933347333:web:316bacd8dc69b56f7fd26c",
+  measurementId: "G-6PPH3KWEXY"
 };
 
 // Database Collections
@@ -28,41 +27,13 @@ const Collections = {
 console.log("Connecting to Firebase project:", firebaseConfig.projectId);
 const app = firebase.initializeApp(firebaseConfig);
 
-// Initialize Firestore with robust logic for named databases
-let db;
-try {
-  const dbId = firebaseConfig.firestoreDatabaseId;
-  console.log("Requested Firestore Database ID:", dbId);
-  
-  if (dbId && dbId !== '(default)') {
-    // In v9 compat, app.firestore(dbId) is the correct way
-    db = app.firestore(dbId);
-    console.log("Firestore instance created for named database:", dbId);
-  } else {
-    // Fallback if no specific ID or explicitly default
-    db = app.firestore();
-    console.log("Firestore instance created for default database");
-  }
-} catch (e) {
-  console.error("CRITICAL: Firestore initialization failed:", e.message);
-  // Re-throw or handle as terminal error if database doesn't exist
-  throw new Error("Failed to initialize Firestore: " + e.message);
-}
-
-// Log internal database ID to verify connection target
-try {
-  const actualDbId = db._databaseId ? db._databaseId.database : (db.databaseId || 'unknown');
-  console.log("Active Firestore Database ID:", actualDbId);
-  if (actualDbId === '(default)' && firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)') {
-    console.error("MISCONFIGURATION: SDK is targeting (default) but config requested", firebaseConfig.firestoreDatabaseId);
-  }
-} catch (e) {}
+// Initialize Firestore
+const db = app.firestore();
+console.log("Firestore initialized using default instance");
 
 db.settings({ 
   cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
 });
-// Remove network toggle as it can disrupt initialization for custom databases
-// db.disableNetwork().then(() => db.enableNetwork());
 
 // Firestore Operation Types
 const OperationType = {
