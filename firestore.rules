@@ -1,125 +1,36 @@
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{database}/documents {
-    // 0. Global Safety Net - Default Deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // --- Phase 3: Primitive Definitions ---
+  match /databases/(default)/documents {
+    // Helper functions
     function isSignedIn() { return request.auth != null; }
-    
-    // Identity check for the specific admin user
     function isAdmin() { 
       return isSignedIn() && 
              request.auth.token.email == "danielgiobari644@gmail.com" && 
              request.auth.token.email_verified == true; 
     }
+
+    // Broadest possible read access for the whole database
+    match /{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Specific collections with public permissions
+    match /testimonies/{testimonyId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
     
-    function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
-    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
-
-    // --- Phase 2: Validation Blueprints ---
-
-    function isValidThemeSettings(data) {
-      return data.keys().hasAll(['primaryColor', 'logoUrl']) &&
-             data.primaryColor is string && data.primaryColor.size() <= 20 &&
-             data.logoUrl is string && data.logoUrl.size() <= 1000 &&
-             (!('mode' in data) || data.mode in ['light', 'dark']);
-    }
-
-    function isValidSermon(data) {
-      return data.keys().hasAll(['title', 'date']) &&
-             data.title is string && data.title.size() <= 300 &&
-             data.date is string;
-    }
-
-    function isValidEvent(data) {
-      return data.keys().hasAll(['title', 'date', 'description']) &&
-             data.title is string && data.title.size() <= 300 &&
-             data.description is string && data.description.size() <= 5000;
-    }
-
-    function isValidTestimony(data) {
-      return data.keys().hasAll(['name', 'message']) &&
-             data.name is string && data.name.size() <= 128 &&
-             data.message is string && data.message.size() <= 5000;
-    }
-
-    function isValidMessage(data) {
-      return data.keys().hasAll(['name', 'email', 'message']) &&
-             data.name is string && data.name.size() <= 128 &&
-             data.email is string && data.email.size() <= 128 &&
-             data.message is string && data.message.size() <= 5000;
-    }
-
-    // --- Phase 4: Path Matchers ---
-
-    // PUBLIC READ ACCESS for site content
-    match /settings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin() && isValidThemeSettings(incoming());
-    }
-
-    match /content/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /services/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /sermons/{sermonId} {
-      allow read: if true;
-      allow write: if isAdmin() && isValidSermon(incoming());
+    match /messages/{messageId} {
+      allow read: if isAdmin(); // Only admin should read messages
+      allow create: if true;
+      allow update, delete: if isAdmin();
     }
 
     match /events/{eventId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidEvent(incoming());
-    }
-
-    match /quotes/{quoteId} {
-      allow read: if true;
       allow write: if isAdmin();
-    }
-
-    match /moments/{momentId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Member Testimonies - Anyone can submit, but only admin can approve or delete
-    match /testimonies/{testimonyId} {
-      // Public can only see approved ones or admin sees all
-      allow list, get: if isAdmin() || (existing().approved == true);
-      // Anyone can create but MUST NOT be pre-approved
-      allow create: if isValidTestimony(incoming()) && incoming().approved == false;
-      // Only admin can approve (update) or delete
-      allow update, delete: if isAdmin();
-    }
-
-    // Contact Form Messages - Public create, Admin only read/delete
-    match /messages/{messageId} {
-      allow create: if isValidMessage(incoming());
-      allow get, list, update, delete: if isAdmin();
-    }
-
-    // Admin Credentials (for current legacy admin check)
-    match /admin/{docId} {
-      // Insecure: allowing read for setup, but should be restricted to admin email eventually
-      // For now, allowing read so the legacy login works, but this is a security risk.
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // User profiles (if any)
-    match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
     }
   }
 }

@@ -693,7 +693,7 @@ async function loadTestimonies() {
         
         if (!testimoniesGrid || !testimoniesEmpty) return;
 
-        // Fetch all testimonies ordered by date to avoid composite index requirement
+        // Fetch testimonies and filter in memory to avoid composite index requirement
         const snapshot = await db.collection(Collections.TESTIMONIES)
             .orderBy('submittedAt', 'desc')
             .get();

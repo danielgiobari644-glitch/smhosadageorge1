@@ -269,8 +269,16 @@ async function initializeDefaultData() {
 }
 }
 
-// Call initialization on load
-initializeDefaultData();
+// Call initialization on load - only if likely to have permissions or as a primary setup
+// On public site, we should usually avoid this unless we're debugging or it's a first-time setup
+// But to be safe, let's allow it to attempt but fail silently if permission denied
+if (window.location.pathname.includes('admin.html')) {
+  initializeDefaultData();
+} else {
+  // On public site, just mark as initialized
+  window.firebaseInitialized = true;
+  console.log('Firebase ready for public access');
+}
 
 // Helper function to wait for Firebase initialization
 function waitForFirebase() {
