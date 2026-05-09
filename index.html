@@ -5,11 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
       window.onerror = function(msg, url, line, col, error) {
-        console.error('GLOBAL ERROR:', msg, 'at', url, ':', line, ':', col, error);
+        console.error('GLOBAL ERROR:', msg || 'Unknown error');
         return false;
       };
       window.onunhandledrejection = function(event) {
-        console.error('UNHANDLED REJECTION:', event.reason);
+        const reason = event.reason;
+        console.error('UNHANDLED REJECTION:', reason?.message || String(reason || 'Unknown rejection'));
       };
     </script>
     <title>Salvation Ministries Ada George</title>

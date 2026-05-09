@@ -52,13 +52,19 @@ function handleFirestoreError(error, operationType, path) {
     if (typeof error === 'string') errorMessage = error;
     else if (error.message) errorMessage = String(error.message);
     else if (error.code) errorMessage = `Firebase Error [${error.code}]`;
-    else errorMessage = String(error);
+    else {
+      try {
+        errorMessage = String(error);
+      } catch (e) {
+        errorMessage = 'Unstringifiable error object';
+      }
+    }
   }
   
   const auth = (typeof firebase !== 'undefined' && typeof firebase.auth === 'function') ? firebase.auth() : null;
   const user = auth ? auth.currentUser : null;
   
-  // Create a clean object with NO circular references
+  // Create a clean object with ABSOLUTELY NO circular references
   const errInfo = {
     error: errorMessage,
     operationType: String(operationType || 'unknown'),
@@ -73,27 +79,30 @@ function handleFirestoreError(error, operationType, path) {
   
   let errString;
   try {
+    // Standard stringify should be safe now because we're using String() on everything
     errString = JSON.stringify(errInfo);
   } catch (e) {
     // Ultimate fallback if JSON.stringify still fails
     errString = `{"error":"${errorMessage.replace(/"/g, '\\"')}", "operationType":"${operationType}", "path":"${path}", "auth":${!!user}}`;
   }
   
-  console.error('Firestore Error Status (JSON):', errString);
+  console.error('Firestore Error Status:', errorMessage, `(Op: ${operationType}, Path: ${path})`);
   throw new Error(errString);
 }
 
 // Global Error Catching
 window.addEventListener('error', function(event) {
     if (event.message === 'Script error.') {
-        console.warn('Masked "Script error." detected. This usually means a cross-origin script failed to load or executed with errors. Check script attributes and CORS headers.');
+        console.warn('Masked "Script error." detected.');
     } else {
-        console.error('Captured Global Error:', event.message, 'at', event.filename, ':', event.lineno, ':', event.colno);
+        console.error('Captured Global Error:', event.message || 'Unknown error');
     }
 });
 
 window.addEventListener('unhandledrejection', function(event) {
-    console.error('Captured Unhandled Rejection:', event.reason?.message || event.reason);
+    const reason = event.reason;
+    const message = reason?.message || String(reason || 'Unknown rejection');
+    console.error('Captured Unhandled Rejection:', message);
 });
 
 // Test connection to Firestore

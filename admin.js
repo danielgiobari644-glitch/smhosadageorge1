@@ -72,7 +72,7 @@ async function loadThemeSettings() {
             }
         }
     } catch (error) {
-        console.error('Error loading theme settings:', error);
+        console.error('Error loading theme settings:', error.message || error);
     }
 }
 
@@ -213,7 +213,7 @@ async function loadThemeData() {
             if (testimonyBackgroundInput) testimonyBackgroundInput.value = theme.testimonyBackground || '';
         }
     } catch (error) {
-        console.error('Error loading theme data:', error);
+        console.error('Error loading theme data:', error.message || error);
     }
 }
 
@@ -263,7 +263,7 @@ async function loadHeroData() {
             }
         }
     } catch (error) {
-        console.error('Error loading hero data:', error);
+        console.error('Error loading hero data:', error.message || error);
     }
 }
 
@@ -329,7 +329,7 @@ async function loadContentData() {
             if (welcomeImageUrl) welcomeImageUrl.value = content.welcomeImage || '';
         }
     } catch (error) {
-        console.error('Error loading content data:', error);
+        console.error('Error loading content data:', error.message || error);
     }
 }
 
@@ -374,7 +374,7 @@ async function loadServicesData() {
             }
         }
     } catch (error) {
-        console.error('Error loading services data:', error);
+        console.error('Error loading services data:', error.message || error);
     }
 }
 
@@ -413,7 +413,7 @@ async function loadContactData() {
             }
         }
     } catch (error) {
-        console.error('Error loading contact data:', error);
+        console.error('Error loading contact data:', error.message || error);
     }
 }
 
@@ -489,7 +489,7 @@ async function loadSermonsList() {
             sermonsList.appendChild(card);
         });
     } catch (error) {
-        console.error('Error loading sermons list:', error);
+        console.error('Error loading sermons list:', error.message || error);
     }
 }
 
@@ -519,7 +519,7 @@ async function deleteSermon(id) {
             await db.collection(Collections.SERMONS).doc(id).delete();
             loadSermonsList();
         } catch (error) {
-            console.error('Error deleting sermon:', error);
+            console.error('Error deleting sermon:', error.message || error);
             alert('Error deleting sermon');
         }
     }
@@ -549,7 +549,7 @@ async function loadEventsList() {
             eventsList.appendChild(card);
         });
     } catch (error) {
-        console.error('Error loading events list:', error);
+        console.error('Error loading events list:', error.message || error);
     }
 }
 
@@ -579,7 +579,7 @@ async function deleteEvent(id) {
             await db.collection(Collections.EVENTS).doc(id).delete();
             loadEventsList();
         } catch (error) {
-            console.error('Error deleting event:', error);
+            console.error('Error deleting event:', error.message || error);
             alert('Error deleting event');
         }
     }
@@ -621,7 +621,7 @@ async function loadPendingTestimonies() {
             pendingList.innerHTML = '<p style="text-align: center; opacity: 0.6;">No pending testimonies</p>';
         }
     } catch (error) {
-        console.error('Error loading pending testimonies:', error);
+        console.error('Error loading pending testimonies:', error.message || error);
     }
 }
 
@@ -652,7 +652,7 @@ async function loadApprovedTestimonies() {
             approvedList.innerHTML = '<p style="text-align: center; opacity: 0.6;">No approved testimonies</p>';
         }
     } catch (error) {
-        console.error('Error loading approved testimonies:', error);
+        console.error('Error loading approved testimonies:', error.message || error);
     }
 }
 
@@ -704,7 +704,7 @@ async function approveTestimony(id) {
         });
         loadTestimoniesList();
     } catch (error) {
-        console.error('Error approving testimony:', error);
+        console.error('Error approving testimony:', error.message || error);
         alert('Error approving testimony');
     }
 }
@@ -715,7 +715,7 @@ async function rejectTestimony(id) {
             await db.collection(Collections.TESTIMONIES).doc(id).delete();
             loadTestimoniesList();
         } catch (error) {
-            console.error('Error rejecting testimony:', error);
+            console.error('Error rejecting testimony:', error.message || error);
             alert('Error rejecting testimony');
         }
     }
@@ -727,7 +727,7 @@ async function deleteTestimony(id) {
             await db.collection(Collections.TESTIMONIES).doc(id).delete();
             loadTestimoniesList();
         } catch (error) {
-            console.error('Error deleting testimony:', error);
+            console.error('Error deleting testimony:', error.message || error);
             alert('Error deleting testimony');
         }
     }
@@ -791,7 +791,7 @@ async function loadQuotesList() {
             list.appendChild(card);
         });
     } catch (error) {
-        console.error('Error loading quotes:', error);
+        console.error('Error loading quotes:', error.message || error);
     }
 }
 
@@ -801,7 +801,7 @@ async function deleteQuote(id) {
             await db.collection(Collections.QUOTES).doc(id).delete();
             loadQuotesList();
         } catch (error) {
-            console.error('Error deleting quote:', error);
+            console.error('Error deleting quote:', error.message || error);
             alert('Error deleting quote');
         }
     }
@@ -851,7 +851,7 @@ async function loadMomentsList() {
         });
         if (window.lucide) lucide.createIcons();
     } catch (error) {
-        console.error('Error loading moments:', error);
+        console.error('Error loading moments:', error.message || error);
     }
 }
 
@@ -861,7 +861,7 @@ async function deleteMoment(id) {
             await db.collection(Collections.MOMENTS).doc(id).delete();
             loadMomentsList();
         } catch (error) {
-            console.error('Error deleting moment:', error);
+            console.error('Error deleting moment:', error.message || error);
             alert('Error deleting moment');
         }
     }
@@ -913,7 +913,7 @@ function setupForms() {
             
             alert('Theme settings saved successfully!');
         } catch (error) {
-            console.error('Error saving theme:', error);
+            console.error('Error saving theme:', error.message || error);
             alert('Error saving theme settings: ' + error.message);
         }
     });
@@ -943,7 +943,7 @@ function setupForms() {
             });
             alert('Hero settings saved successfully!');
         } catch (error) {
-            console.error('Error saving hero:', error);
+            console.error('Error saving hero:', error.message || error);
             alert('Error saving hero settings');
         }
     });
@@ -966,7 +966,7 @@ function setupForms() {
             });
             alert('Content saved successfully!');
         } catch (error) {
-            console.error('Error saving content:', error);
+            console.error('Error saving content:', error.message || error);
             alert('Error saving content');
         }
     });
@@ -1015,7 +1015,7 @@ function setupForms() {
             loadQuotesList();
             alert('Quote added successfully!');
         } catch (error) {
-            console.error('Error adding quote:', error);
+            console.error('Error adding quote:', error.message || error);
             alert('Error adding quote');
         }
     });
@@ -1035,7 +1035,7 @@ function setupForms() {
             loadMomentsList();
             alert('Photo moment added successfully!');
         } catch (error) {
-            console.error('Error adding photo moment:', error);
+            console.error('Error adding photo moment:', error.message || error);
             alert('Error adding photo moment');
         }
     });
@@ -1054,7 +1054,7 @@ function setupForms() {
             loadMomentsList();
             alert('Video moment added successfully!');
         } catch (error) {
-            console.error('Error adding video moment:', error);
+            console.error('Error adding video moment:', error.message || error);
             alert('Error adding video moment');
         }
     });
@@ -1090,7 +1090,7 @@ function setupForms() {
             await db.collection(Collections.SERVICES).doc('schedule').update(updates);
             alert('Service times saved successfully!');
         } catch (error) {
-            console.error('Error saving services:', error);
+            console.error('Error saving services:', error.message || error);
             alert('Error saving service times');
         }
     });
@@ -1116,7 +1116,7 @@ function setupForms() {
             loadSermonsList();
             alert('Sermon added successfully!');
         } catch (error) {
-            console.error('Error adding sermon:', error);
+            console.error('Error adding sermon:', error.message || error);
             alert('Error adding sermon');
         }
     });
@@ -1142,7 +1142,7 @@ function setupForms() {
             loadEventsList();
             alert('Event added successfully!');
         } catch (error) {
-            console.error('Error adding event:', error);
+            console.error('Error adding event:', error.message || error);
             alert('Error adding event');
         }
     });
@@ -1166,7 +1166,7 @@ function setupForms() {
             loadTestimoniesList();
             alert('Testimony added successfully!');
         } catch (error) {
-            console.error('Error adding testimony:', error);
+            console.error('Error adding testimony:', error.message || error);
             alert('Error adding testimony');
         }
     });
@@ -1192,7 +1192,7 @@ function setupForms() {
             });
             alert('Contact information saved successfully!');
         } catch (error) {
-            console.error('Error saving contact info:', error);
+            console.error('Error saving contact info:', error.message || error);
             alert('Error saving contact information');
         }
     });
@@ -1233,7 +1233,7 @@ async function loadMessagesList() {
             `;
         }).join('');
     } catch (error) {
-        console.error('Error loading messages:', error);
+        console.error('Error loading messages:', error.message || error);
         list.innerHTML = '<p class="error-msg">Error loading messages.</p>';
     }
 }
@@ -1244,7 +1244,7 @@ async function deleteMessage(id) {
         await db.collection(Collections.MESSAGES).doc(id).delete();
         loadMessagesList();
     } catch (error) {
-        console.error('Error deleting message:', error);
+        console.error('Error deleting message:', error.message || error);
         alert('Error deleting message');
     }
 }
