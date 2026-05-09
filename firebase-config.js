@@ -29,6 +29,7 @@ const app = firebase.initializeApp(firebaseConfig);
 
 // Initialize Firestore
 const db = app.firestore();
+const auth = app.auth();
 console.log("Firestore initialized using default instance");
 
 db.settings({ 

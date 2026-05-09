@@ -82,14 +82,49 @@ async function loadThemeSettings() {
 
 function setupLogin() {
     const loginForm = document.getElementById('loginForm');
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
     const loginFeedback = document.getElementById('loginFeedback');
     
-    // Check if already logged in
-    const loggedIn = sessionStorage.getItem('adminLoggedIn');
-    if (loggedIn === 'true') {
-        showDashboard();
-        return;
-    }
+    // Check Firebase Auth state first
+    auth.onAuthStateChanged((user) => {
+        if (user && user.email === 'danielgiobari644@gmail.com' && user.emailVerified) {
+            console.log('Firebase Auth: Admin recognized');
+            sessionStorage.setItem('adminLoggedIn', 'true');
+            currentUser = user.displayName || user.email;
+            showDashboard();
+        } else {
+            console.log('Firebase Auth: No admin active');
+            // If they were "logged in" via legacy but no Auth, we might still allow local session
+            // but rules will fail. Better to stay on login screen if Auth is needed.
+            const loggedIn = sessionStorage.getItem('adminLoggedIn');
+            if (loggedIn === 'true') {
+                showDashboard();
+            }
+        }
+    });
+
+    googleLoginBtn?.addEventListener('click', async () => {
+        try {
+            console.log('Google login attempt...');
+            const provider = new firebase.auth.GoogleAuthProvider();
+            const result = await auth.signInWithPopup(provider);
+            const user = result.user;
+            
+            if (user.email === 'danielgiobari644@gmail.com') {
+                console.log('Google login successful');
+                sessionStorage.setItem('adminLoggedIn', 'true');
+                currentUser = user.displayName || user.email;
+                showDashboard();
+            } else {
+                console.warn('Unauthorized email:', user.email);
+                showFeedback(loginFeedback, 'Unauthorized access attempt. Access denied.', 'error');
+                await auth.signOut();
+            }
+        } catch (error) {
+            console.error('Google login error:', error.message || error);
+            showFeedback(loginFeedback, `Login error: ${error.message || 'Unknown error'}`, 'error');
+        }
+    });
     
     loginForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -150,7 +185,23 @@ function showDashboard() {
 function setupNavigation() {
     const navItems = document.querySelectorAll('.admin-nav-item');
     const panels = document.querySelectorAll('.admin-panel');
+    const logoutBtn = document.getElementById('logoutBtn');
     
+    logoutBtn?.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to logout?')) {
+            try {
+                await auth.signOut();
+                sessionStorage.removeItem('adminLoggedIn');
+                window.location.reload();
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Fallback: clear session anyway
+                sessionStorage.removeItem('adminLoggedIn');
+                window.location.reload();
+            }
+        }
+    });
+
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             const panelId = item.dataset.panel + 'Panel';

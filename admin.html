@@ -363,6 +363,16 @@
                     <input type="password" id="loginPassword" placeholder="Enter password" required>
                 </div>
                 <button type="submit" class="btn-admin" style="width: 100%; margin-top: 1.5rem;">Sign In</button>
+                
+                <div style="margin: 1.5rem 0; text-align: center; border-bottom: 1px solid #eee; line-height: 0.1em;">
+                    <span style="background: #fff; padding: 0 10px; color: #aaa; font-size: 0.8rem;">OR</span>
+                </div>
+
+                <button type="button" id="googleLoginBtn" class="btn-admin" style="width: 100%; background: #fff; color: #444; border: 1px solid #ddd; box-shadow: none; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" height="18" alt="Google logo">
+                    Sign in with Google
+                </button>
+                
                 <div id="loginFeedback" class="form-feedback"></div>
             </form>
         </div>
@@ -388,6 +398,9 @@
                 <a class="admin-nav-item" data-panel="moments"><span>Moments</span></a>
                 <a class="admin-nav-item" data-panel="messages"><span>Messages</span></a>
                 <a class="admin-nav-item" data-panel="contact"><span>Contact Info</span></a>
+                <div style="margin-top: 2rem; padding: 1rem; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <button id="logoutBtn" class="btn-admin" style="width: 100%; background: #f1f5f9; color: #ef4444; box-shadow: none;">Logout</button>
+                </div>
             </nav>
         </aside>
 
