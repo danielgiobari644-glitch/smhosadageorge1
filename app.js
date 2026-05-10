@@ -208,16 +208,50 @@ async function loadThemeSettings() {
                 heroLivestreamBtn.href = theme.livestreamUrl;
             }
             
+            // Apply design variables
+            if (theme.primaryColor) document.documentElement.style.setProperty('--primary-color', theme.primaryColor);
+            if (theme.primaryHover) document.documentElement.style.setProperty('--primary-hover', theme.primaryHover);
+            if (theme.borderRadius) {
+                document.documentElement.style.setProperty('--radius-md', theme.borderRadius + 'px');
+                document.documentElement.style.setProperty('--radius-lg', (theme.borderRadius * 1.5) + 'px');
+            }
+            if (theme.sectionSpacing) document.documentElement.style.setProperty('--section-spacing', theme.sectionSpacing + 'rem');
+            if (theme.fontSizeBase) document.documentElement.style.setProperty('--font-size-base', theme.fontSizeBase + 'px');
+
             // Apply dark mode if set
             if (theme.mode === 'dark') {
                 document.body.classList.add('dark-mode');
             } else {
                 document.body.classList.remove('dark-mode');
             }
+            
+            // Initialize Reveal Animations
+            setupRevealAnimations();
         }
     } catch (error) {
         console.error('Error loading theme settings:', error.message || String(error));
     }
+}
+
+function setupRevealAnimations() {
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('revealed');
+                // Optional: stop observing once revealed
+                // observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+
+    document.querySelectorAll('[data-reveal]').forEach(el => {
+        observer.observe(el);
+    });
 }
 
 // ========================================

@@ -222,6 +222,7 @@ function setupNavigation() {
 
 async function loadAllData() {
     loadThemeData();
+    loadDesignData();
     loadHeroData();
     loadContentData();
     loadServicesData();
@@ -238,12 +239,60 @@ async function loadAllData() {
 // Theme Settings
 // ========================================
 
-async function loadThemeData() {
+async function loadDesignData() {
+    try {
+        const doc = await db.collection(Collections.SETTINGS).doc('theme').get();
+        if (doc.exists) {
+            const data = doc.data();
+            const mode = document.getElementById('designThemeMode');
+            const primary = document.getElementById('designPrimaryColor');
+            const hover = document.getElementById('designPrimaryHover');
+            const radius = document.getElementById('designBorderRadius');
+            const spacing = document.getElementById('designSpacing');
+            const fontSize = document.getElementById('designFontSize');
+
+            if (mode) mode.value = data.mode || 'light';
+            if (primary) primary.value = data.primaryColor || '#2563eb';
+            if (hover) hover.value = data.primaryHover || '#1d4ed8';
+            if (radius) radius.value = data.borderRadius || 12;
+            if (spacing) spacing.value = data.sectionSpacing || 5;
+            if (fontSize) fontSize.value = data.fontSizeBase || 16;
+            
+            updateDesignValues();
+        }
+    } catch (error) {
+        console.error('Error loading design data:', error.message || String(error));
+    }
+}
+
+function updateDesignValues() {
+    const mode = document.getElementById('designThemeMode')?.value;
+    const radius = document.getElementById('designBorderRadius')?.value;
+    const spacing = document.getElementById('designSpacing')?.value;
+    const fontSize = document.getElementById('designFontSize')?.value;
+    const primary = document.getElementById('designPrimaryColor')?.value;
+
+    if (document.getElementById('borderRadiusVal')) document.getElementById('borderRadiusVal').textContent = radius + 'px';
+    if (document.getElementById('spacingVal')) document.getElementById('spacingVal').textContent = spacing + 'rem';
+    if (document.getElementById('fontSizeVal')) document.getElementById('fontSizeVal').textContent = fontSize + 'px';
+
+    // Live sync for admin preview
+    if (mode === 'dark') {
+        document.body.classList.add('dark-mode');
+    } else if (mode === 'light') {
+        document.body.classList.remove('dark-mode');
+    }
+    
+    document.documentElement.style.setProperty('--radius-md', radius + 'px');
+    document.documentElement.style.setProperty('--radius-lg', (radius * 1.5) + 'px');
+    document.documentElement.style.setProperty('--section-spacing', spacing + 'rem');
+    document.documentElement.style.setProperty('--font-size-base', fontSize + 'px');
+    if (primary) document.documentElement.style.setProperty('--primary-color', primary);
+}
     try {
         const doc = await db.collection(Collections.SETTINGS).doc('theme').get();
         if (doc.exists) {
             const theme = doc.data();
-            const themeMode = document.getElementById('themeMode');
             const primaryColor = document.getElementById('primaryColor');
             const secondaryColor = document.getElementById('secondaryColor');
             const accentColor = document.getElementById('accentColor');
@@ -253,7 +302,6 @@ async function loadThemeData() {
             const sermonBackgroundInput = document.getElementById('sermonBackgroundInput');
             const testimonyBackgroundInput = document.getElementById('testimonyBackgroundInput');
 
-            if (themeMode) themeMode.value = theme.mode || 'light';
             if (primaryColor) primaryColor.value = theme.primaryColor || '#2563eb';
             if (secondaryColor) secondaryColor.value = theme.secondaryColor || '#7c3aed';
             if (accentColor) accentColor.value = theme.accentColor || '#f59e0b';
@@ -264,7 +312,7 @@ async function loadThemeData() {
             if (testimonyBackgroundInput) testimonyBackgroundInput.value = theme.testimonyBackground || '';
         }
     } catch (error) {
-        console.error('Error loading theme data:', error.message || error);
+        console.error('Error loading theme data:', error.message || String(error));
     }
 }
 
@@ -570,7 +618,7 @@ async function deleteSermon(id) {
             await db.collection(Collections.SERMONS).doc(id).delete();
             loadSermonsList();
         } catch (error) {
-            console.error('Error deleting sermon:', error.message || error);
+            console.error('Error deleting sermon:', error.message || String(error));
             alert('Error deleting sermon');
         }
     }
@@ -630,7 +678,7 @@ async function deleteEvent(id) {
             await db.collection(Collections.EVENTS).doc(id).delete();
             loadEventsList();
         } catch (error) {
-            console.error('Error deleting event:', error.message || error);
+            console.error('Error deleting event:', error.message || String(error));
             alert('Error deleting event');
         }
     }
@@ -933,6 +981,36 @@ function setupMomentsAdminTabs() {
 }
 
 function setupForms() {
+    // Design System Form
+    const designForm = document.getElementById('designForm');
+    ['designBorderRadius', 'designSpacing', 'designFontSize', 'designPrimaryColor', 'designThemeMode'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateDesignValues);
+    });
+
+    designForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            const updates = {
+                mode: document.getElementById('designThemeMode').value,
+                primaryColor: document.getElementById('designPrimaryColor').value,
+                primaryHover: document.getElementById('designPrimaryHover').value,
+                borderRadius: parseInt(document.getElementById('designBorderRadius').value),
+                sectionSpacing: parseFloat(document.getElementById('designSpacing').value),
+                fontSizeBase: parseInt(document.getElementById('designFontSize').value),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            await db.collection(Collections.SETTINGS).doc('theme').update(updates);
+            alert('Design system updated successfully!');
+            // Apply immediately to current view
+            if (updates.mode === 'dark') document.body.classList.add('dark-mode');
+            else document.body.classList.remove('dark-mode');
+        } catch (error) {
+            console.error('Error saving design:', error.message || String(error));
+            alert('Error saving design system');
+        }
+    });
+
     // Theme Form
     document.getElementById('themeForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1217,7 +1295,7 @@ function setupForms() {
             loadTestimoniesList();
             alert('Testimony added successfully!');
         } catch (error) {
-            console.error('Error adding testimony:', error.message || error);
+            console.error('Error adding testimony:', error.message || String(error));
             alert('Error adding testimony');
         }
     });

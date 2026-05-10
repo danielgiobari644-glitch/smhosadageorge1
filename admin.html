@@ -397,7 +397,7 @@
                 <a class="admin-nav-item" data-panel="quotes"><span>Daily Quotes</span></a>
                 <a class="admin-nav-item" data-panel="moments"><span>Moments</span></a>
                 <a class="admin-nav-item" data-panel="messages"><span>Messages</span></a>
-                <a class="admin-nav-item" data-panel="contact"><span>Contact Info</span></a>
+                <a class="admin-nav-item" data-panel="design"><span>Design System</span></a>
                 <div style="margin-top: 2rem; padding: 1rem; border-top: 1px solid rgba(0,0,0,0.05);">
                     <button id="logoutBtn" class="btn-admin" style="width: 100%; background: #f1f5f9; color: #ef4444; box-shadow: none;">Logout</button>
                 </div>
@@ -410,20 +410,80 @@
                 <h1>Dashboard</h1>
             </div>
 
-            <!-- Theme Settings Panel -->
-            <div id="themePanel" class="admin-panel active">
+            <!-- Design System Panel -->
+            <div id="designPanel" class="admin-panel">
                 <div class="admin-card">
-                    <h2>Visual Identity</h2>
-                    <form id="themeForm">
-                        <div class="form-row">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <h2 style="margin-bottom: 0;">Design System</h2>
+                        <button type="submit" form="designForm" class="btn-admin">Save System Changes</button>
+                    </div>
+                    
+                    <form id="designForm" class="admin-form">
+                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
                             <div class="form-group">
-                                <label>Interface Mode</label>
-                                <select id="themeMode">
+                                <label>Interface Theme Mode</label>
+                                <select id="designThemeMode">
                                     <option value="light">Light Mode</option>
                                     <option value="dark">Dark Mode</option>
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label>Primary Theme Color</label>
+                                <input type="color" id="designPrimaryColor">
+                            </div>
+                            <div class="form-group">
+                                <label>Primary Hover Color</label>
+                                <input type="color" id="designPrimaryHover">
+                            </div>
+                            <div class="form-group">
+                                <label>Global Border Radius (px)</label>
+                                <input type="range" id="designBorderRadius" min="0" max="40" step="2">
+                                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+                                    <span style="font-size: 0.8rem; opacity: 0.6;">Sharp</span>
+                                    <span id="borderRadiusVal" style="font-weight: 700; color: var(--primary-color);">12px</span>
+                                    <span style="font-size: 0.8rem; opacity: 0.6;">Round</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Section Vertical Spacing (rem)</label>
+                                <input type="range" id="designSpacing" min="1" max="15" step="0.5">
+                                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+                                    <span style="font-size: 0.8rem; opacity: 0.6;">Compact</span>
+                                    <span id="spacingVal" style="font-weight: 700; color: var(--primary-color);">5rem</span>
+                                    <span style="font-size: 0.8rem; opacity: 0.6;">Spacious</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Base Text Size (px)</label>
+                                <input type="range" id="designFontSize" min="14" max="24" step="1">
+                                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+                                    <span style="font-size: 0.8rem; opacity: 0.6;">Small</span>
+                                    <span id="fontSizeVal" style="font-weight: 700; color: var(--primary-color);">16px</span>
+                                    <span style="font-size: 0.8rem; opacity: 0.6;">Large</span>
+                                </div>
+                            </div>
                         </div>
+
+                        <div style="margin-top: 3rem; background: var(--bg-light); padding: 3rem; border-radius: var(--radius-lg); border: 2px dashed rgba(0,0,0,0.05); text-align: center;">
+                            <h3 style="margin-bottom: 1.5rem; font-family: var(--font-display);">Interactive Preview</h3>
+                            <div style="background: var(--bg-white); padding: 2rem; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); display: inline-block; text-align: left; max-width: 300px;">
+                                <div style="width: 100%; height: 120px; background: #eee; border-radius: calc(var(--radius-md) / 1.5); margin-bottom: 1rem; overflow: hidden;">
+                                    <img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=400&q=80" style="width: 100%; height: 100%; object-fit: cover;">
+                                </div>
+                                <h4 style="margin-bottom: 0.5rem;">Sample Card Title</h4>
+                                <p style="font-size: 0.9rem; opacity: 0.7; margin-bottom: 1.5rem;">This represents how your content will look with current settings.</p>
+                                <button type="button" class="btn-admin" style="width: 100%; pointer-events: none; opacity: 0.9;">Action Example</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Theme Settings Panel -->
+            <div id="themePanel" class="admin-panel active">
+                <div class="admin-card">
+                    <h2>Brand Identity</h2>
+                    <form id="themeForm">
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Primary Brand Color</label>

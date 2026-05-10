@@ -62,10 +62,22 @@ function handleFirestoreError(error, operationType, path) {
     }
   }
   
-  const auth = (typeof firebase !== 'undefined' && typeof firebase.auth === 'function') ? firebase.auth() : null;
-  const user = auth ? auth.currentUser : null;
+  // Safe stringify helper to avoid circularity
+  const safeStringify = (obj) => {
+    const cache = new Set();
+    return JSON.stringify(obj, (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (cache.has(value)) return '[Circular]';
+        cache.add(value);
+      }
+      return value;
+    });
+  };
+
+  const authRef = (typeof firebase !== 'undefined' && typeof firebase.auth === 'function') ? firebase.auth() : null;
+  const user = authRef ? authRef.currentUser : null;
   
-  // Create a clean object with ABSOLUTELY NO circular references
+  // Create a clean object with ABSOLUTELY NO direct circular references
   const errInfo = {
     error: errorMessage,
     operationType: String(operationType || 'unknown'),
@@ -80,14 +92,12 @@ function handleFirestoreError(error, operationType, path) {
   
   let errString;
   try {
-    // Standard stringify should be safe now because we're using String() on everything
-    errString = JSON.stringify(errInfo);
+    errString = safeStringify(errInfo);
   } catch (e) {
-    // Ultimate fallback if JSON.stringify still fails
-    errString = `{"error":"${errorMessage.replace(/"/g, '\\"')}", "operationType":"${operationType}", "path":"${path}", "auth":${!!user}}`;
+    errString = `{"error":"Serialization failed", "originalError":"${errorMessage.replace(/"/g, '\\"')}"}`;
   }
   
-  console.error('Firestore Error Status:', errorMessage, `(Op: ${operationType}, Path: ${path})`);
+  console.error('[Firestore Error]', errorMessage, `(Op: ${operationType}, Path: ${path})`);
   throw new Error(errString);
 }
 
@@ -96,14 +106,18 @@ window.addEventListener('error', function(event) {
     if (event.message === 'Script error.') {
         console.warn('Masked "Script error." detected.');
     } else {
-        console.error('Captured Global Error:', event.message || 'Unknown error');
+        const msg = event.message || 'Unknown global error';
+        console.error('Captured Global Error:', String(msg));
     }
 });
 
 window.addEventListener('unhandledrejection', function(event) {
     const reason = event.reason;
-    const message = reason?.message || String(reason || 'Unknown rejection');
-    console.error('Captured Unhandled Rejection:', message);
+    let message = 'Unknown rejection';
+    if (reason) {
+        message = reason.message || String(reason);
+    }
+    console.error('Captured Unhandled Rejection:', String(message));
 });
 
 // Test connection to Firestore
