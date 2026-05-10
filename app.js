@@ -87,8 +87,8 @@ let heroInterval = null;
 
 async function loadThemeSettings() {
     try {
-        const doc = await db.collection(Collections.SETTINGS).doc('theme').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.SETTINGS).doc('theme'));
+        if (doc && doc.exists) {
             const theme = doc.data();
             
             if (heroInterval) {
@@ -260,8 +260,8 @@ function setupRevealAnimations() {
 
 async function loadAboutContent() {
     try {
-        const doc = await db.collection(Collections.CONTENT).doc('about').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.CONTENT).doc('about'));
+        if (doc && doc.exists) {
             const content = doc.data();
             
             const missionText = document.getElementById('missionText');
@@ -297,11 +297,10 @@ async function loadQuotes() {
         if (!container) return;
 
         // Fetch all quotes ordered by date to avoid composite index requirement
-        const snapshot = await db.collection(Collections.QUOTES)
-            .orderBy('createdAt', 'desc')
-            .get();
+        const snapshot = await safeList(db.collection(Collections.QUOTES)
+            .orderBy('createdAt', 'desc'));
 
-        const activeQuote = snapshot.docs.find(doc => doc.data().active === true);
+        const activeQuote = snapshot ? snapshot.docs.find(doc => doc.data().active === true) : null;
 
         if (activeQuote) {
             const quote = activeQuote.data();
@@ -339,8 +338,8 @@ async function loadQuotes() {
 
 async function loadServiceTimes() {
     try {
-        const doc = await db.collection(Collections.SERVICES).doc('schedule').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.SERVICES).doc('schedule'));
+        if (doc && doc.exists) {
             const schedule = doc.data();
             
             // Update Sunday services
@@ -403,9 +402,9 @@ async function loadSermons() {
             if (searchBox) searchBox.style.display = 'block';
         }
 
-        const snapshot = await query.get();
+        const snapshot = await safeList(query);
         
-        if (!snapshot.empty) {
+        if (snapshot && !snapshot.empty) {
             sermonsEmpty.style.display = 'none';
             sermonsGrid.innerHTML = '';
             
@@ -495,11 +494,10 @@ async function loadEvents() {
         
         if (!eventsGrid || !eventsSlider) return;
 
-        const snapshot = await db.collection(Collections.EVENTS)
-            .orderBy('date', 'asc')
-            .get();
+        const snapshot = await safeList(db.collection(Collections.EVENTS)
+            .orderBy('date', 'asc'));
         
-        if (!snapshot.empty) {
+        if (snapshot && !snapshot.empty) {
             eventsGrid.innerHTML = '';
             
             const events = [];
@@ -589,18 +587,19 @@ async function loadMoments() {
         
         if (!photosTrack || !videosTrack) return;
 
-        const snapshot = await db.collection(Collections.MOMENTS)
-            .orderBy('createdAt', 'desc')
-            .get();
+        const snapshot = await safeList(db.collection(Collections.MOMENTS)
+            .orderBy('createdAt', 'desc'));
         
         const photos = [];
         const videos = [];
         
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.type === 'photo') photos.push(data);
-            else if (data.type === 'video') videos.push(data);
-        });
+        if (snapshot) {
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.type === 'photo') photos.push(data);
+                else if (data.type === 'video') videos.push(data);
+            });
+        }
 
         // Load Photos
         if (photos.length > 0) {
@@ -728,17 +727,18 @@ async function loadTestimonies() {
         if (!testimoniesGrid || !testimoniesEmpty) return;
 
         // Fetch testimonies and filter in memory to avoid composite index requirement
-        const snapshot = await db.collection(Collections.TESTIMONIES)
-            .orderBy('submittedAt', 'desc')
-            .get();
+        const snapshot = await safeList(db.collection(Collections.TESTIMONIES)
+            .orderBy('submittedAt', 'desc'));
         
         const approvedTestimonies = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.approved === true) {
-                approvedTestimonies.push(data);
-            }
-        });
+        if (snapshot) {
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.approved === true) {
+                    approvedTestimonies.push(data);
+                }
+            });
+        }
 
         if (approvedTestimonies.length > 0) {
             testimoniesEmpty.style.display = 'none';
@@ -810,8 +810,8 @@ function moveTestimonySlide(direction) {
 
 async function loadContactInfo() {
     try {
-        const doc = await db.collection(Collections.CONTENT).doc('contact').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.CONTENT).doc('contact'));
+        if (doc && doc.exists) {
             const contact = doc.data();
             
             const emailEl = document.getElementById('contactEmail');
@@ -865,8 +865,8 @@ function setupMobileMenu() {
 
 async function loadOfferingDetails() {
     try {
-        const doc = await db.collection(Collections.CONTENT).doc('contact').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.CONTENT).doc('contact'));
+        if (doc && doc.exists) {
             const contact = doc.data();
             const container = document.getElementById('offeringAccounts');
             if (!container) return;

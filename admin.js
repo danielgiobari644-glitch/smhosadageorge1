@@ -30,8 +30,8 @@ function initializeAdmin() {
 
 async function loadThemeSettings() {
     try {
-        const doc = await db.collection(Collections.SETTINGS).doc('theme').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.SETTINGS).doc('theme'));
+        if (doc && doc.exists) {
             const theme = doc.data();
             
             // Update CSS variables
@@ -72,7 +72,7 @@ async function loadThemeSettings() {
             }
         }
     } catch (error) {
-        console.error('Error loading theme settings:', error.message || error);
+        console.error('Error loading theme settings:', error.message || String(error));
     }
 }
 
@@ -121,7 +121,7 @@ function setupLogin() {
                 await auth.signOut();
             }
         } catch (error) {
-            console.error('Google login error:', error.message || error);
+            console.error('Google login error:', error.message || String(error));
             showFeedback(loginFeedback, `Login error: ${error.message || 'Unknown error'}`, 'error');
         }
     });
@@ -143,9 +143,9 @@ function setupLogin() {
             // Wait for Firebase to be ready
             await waitForFirebase();
             
-            const doc = await db.collection(Collections.ADMIN).doc('credentials').get();
+            const doc = await safeGet(db.collection(Collections.ADMIN).doc('credentials'));
             
-            if (!doc.exists) {
+            if (!doc || !doc.exists) {
                 console.error('Credentials document does not exist');
                 showFeedback(loginFeedback, 'Admin credentials not found. Please check Firebase setup.', 'error');
                 return;
@@ -164,7 +164,7 @@ function setupLogin() {
                 showFeedback(loginFeedback, 'Invalid username or password', 'error');
             }
         } catch (error) {
-            console.error('Login error:', error.message || error);
+            console.error('Login error:', error.message || String(error));
             showFeedback(loginFeedback, `Error: ${error.message || 'Unknown error'}. Please try again.`, 'error');
         }
     });
@@ -187,20 +187,22 @@ function setupNavigation() {
     const panels = document.querySelectorAll('.admin-panel');
     const logoutBtn = document.getElementById('logoutBtn');
     
-    logoutBtn?.addEventListener('click', async () => {
-        if (confirm('Are you sure you want to logout?')) {
-            try {
-                await auth.signOut();
-                sessionStorage.removeItem('adminLoggedIn');
-                window.location.reload();
-            } catch (error) {
-                console.error('Logout error:', error);
-                // Fallback: clear session anyway
-                sessionStorage.removeItem('adminLoggedIn');
-                window.location.reload();
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to logout?')) {
+                try {
+                    await auth.signOut();
+                    sessionStorage.removeItem('adminLoggedIn');
+                    window.location.reload();
+                } catch (error) {
+                    console.error('Logout error:', error.message || String(error));
+                    // Fallback: clear session anyway
+                    sessionStorage.removeItem('adminLoggedIn');
+                    window.location.reload();
+                }
             }
-        }
-    });
+        });
+    }
 
     navItems.forEach(item => {
         item.addEventListener('click', () => {
@@ -241,8 +243,8 @@ async function loadAllData() {
 
 async function loadDesignData() {
     try {
-        const doc = await db.collection(Collections.SETTINGS).doc('theme').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.SETTINGS).doc('theme'));
+        if (doc && doc.exists) {
             const data = doc.data();
             const mode = document.getElementById('designThemeMode');
             const primary = document.getElementById('designPrimaryColor');
@@ -289,9 +291,11 @@ function updateDesignValues() {
     document.documentElement.style.setProperty('--font-size-base', fontSize + 'px');
     if (primary) document.documentElement.style.setProperty('--primary-color', primary);
 }
+
+async function loadThemeData() {
     try {
-        const doc = await db.collection(Collections.SETTINGS).doc('theme').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.SETTINGS).doc('theme'));
+        if (doc && doc.exists) {
             const theme = doc.data();
             const primaryColor = document.getElementById('primaryColor');
             const secondaryColor = document.getElementById('secondaryColor');
@@ -322,8 +326,8 @@ function updateDesignValues() {
 
 async function loadHeroData() {
     try {
-        const doc = await db.collection(Collections.SETTINGS).doc('theme').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.SETTINGS).doc('theme'));
+        if (doc && doc.exists) {
             const theme = doc.data();
             const heroModeSelect = document.getElementById('heroModeSelect');
             const heroTitleInput = document.getElementById('heroTitleInput');
@@ -362,7 +366,7 @@ async function loadHeroData() {
             }
         }
     } catch (error) {
-        console.error('Error loading hero data:', error.message || error);
+        console.error('Error loading hero data:', error.message || String(error));
     }
 }
 
@@ -410,8 +414,8 @@ function addHeroImageRow(data = {}) {
 
 async function loadContentData() {
     try {
-        const doc = await db.collection(Collections.CONTENT).doc('about').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.CONTENT).doc('about'));
+        if (doc && doc.exists) {
             const content = doc.data();
             const missionInput = document.getElementById('missionInput');
             const missionImageUrl = document.getElementById('missionImageUrl');
@@ -428,7 +432,7 @@ async function loadContentData() {
             if (welcomeImageUrl) welcomeImageUrl.value = content.welcomeImage || '';
         }
     } catch (error) {
-        console.error('Error loading content data:', error.message || error);
+        console.error('Error loading content data:', error.message || String(error));
     }
 }
 
@@ -438,8 +442,8 @@ async function loadContentData() {
 
 async function loadServicesData() {
     try {
-        const doc = await db.collection(Collections.SERVICES).doc('schedule').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.SERVICES).doc('schedule'));
+        if (doc && doc.exists) {
             const schedule = doc.data();
             
             for (let i = 1; i <= 4; i++) {
@@ -473,7 +477,7 @@ async function loadServicesData() {
             }
         }
     } catch (error) {
-        console.error('Error loading services data:', error.message || error);
+        console.error('Error loading services data:', error.message || String(error));
     }
 }
 
@@ -483,8 +487,8 @@ async function loadServicesData() {
 
 async function loadContactData() {
     try {
-        const doc = await db.collection(Collections.CONTENT).doc('contact').get();
-        if (doc.exists) {
+        const doc = await safeGet(db.collection(Collections.CONTENT).doc('contact'));
+        if (doc && doc.exists) {
             const contact = doc.data();
             
             const contactEmailAdmin = document.getElementById('contactEmailAdmin');
@@ -512,7 +516,7 @@ async function loadContactData() {
             }
         }
     } catch (error) {
-        console.error('Error loading contact data:', error.message || error);
+        console.error('Error loading contact data:', error.message || String(error));
     }
 }
 
@@ -571,13 +575,13 @@ function addBankAccountRow(data = {}) {
 async function loadSermonsList() {
     try {
         const sermonsList = document.getElementById('sermonsList');
+        if (!sermonsList) return;
         sermonsList.innerHTML = '';
         
-        const snapshot = await db.collection(Collections.SERMONS)
-            .orderBy('date', 'desc')
-            .get();
+        const snapshot = await safeList(db.collection(Collections.SERMONS)
+            .orderBy('date', 'desc'));
         
-        if (snapshot.empty) {
+        if (!snapshot || snapshot.empty) {
             sermonsList.innerHTML = '<p style="text-align: center; opacity: 0.6;">No sermons yet</p>';
             return;
         }
@@ -588,7 +592,7 @@ async function loadSermonsList() {
             sermonsList.appendChild(card);
         });
     } catch (error) {
-        console.error('Error loading sermons list:', error.message || error);
+        console.error('Error loading sermons list:', error.message || String(error));
     }
 }
 
@@ -631,13 +635,13 @@ async function deleteSermon(id) {
 async function loadEventsList() {
     try {
         const eventsList = document.getElementById('eventsList');
+        if (!eventsList) return;
         eventsList.innerHTML = '';
         
-        const snapshot = await db.collection(Collections.EVENTS)
-            .orderBy('date', 'desc')
-            .get();
+        const snapshot = await safeList(db.collection(Collections.EVENTS)
+            .orderBy('date', 'desc'));
         
-        if (snapshot.empty) {
+        if (!snapshot || snapshot.empty) {
             eventsList.innerHTML = '<p style="text-align: center; opacity: 0.6;">No events yet</p>';
             return;
         }
@@ -648,7 +652,7 @@ async function loadEventsList() {
             eventsList.appendChild(card);
         });
     } catch (error) {
-        console.error('Error loading events list:', error.message || error);
+        console.error('Error loading events list:', error.message || String(error));
     }
 }
 
@@ -699,17 +703,18 @@ async function loadPendingTestimonies() {
         pendingList.innerHTML = '';
         
         // Fetch all testimonies ordered by date to avoid composite index requirement
-        const snapshot = await db.collection(Collections.TESTIMONIES)
-            .orderBy('submittedAt', 'desc')
-            .get();
+        const snapshot = await safeList(db.collection(Collections.TESTIMONIES)
+            .orderBy('submittedAt', 'desc'));
         
         const pendingTestimonies = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.approved === false) {
-                pendingTestimonies.push({ id: doc.id, ...data });
-            }
-        });
+        if (snapshot) {
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.approved === false) {
+                    pendingTestimonies.push({ id: doc.id, ...data });
+                }
+            });
+        }
 
         if (pendingTestimonies.length > 0) {
             pendingTestimonies.forEach(testimony => {
@@ -720,7 +725,7 @@ async function loadPendingTestimonies() {
             pendingList.innerHTML = '<p style="text-align: center; opacity: 0.6;">No pending testimonies</p>';
         }
     } catch (error) {
-        console.error('Error loading pending testimonies:', error.message || error);
+        console.error('Error loading pending testimonies:', error.message || String(error));
     }
 }
 
@@ -730,17 +735,18 @@ async function loadApprovedTestimonies() {
         approvedList.innerHTML = '';
         
         // Fetch all testimonies ordered by date to avoid composite index requirement
-        const snapshot = await db.collection(Collections.TESTIMONIES)
-            .orderBy('submittedAt', 'desc')
-            .get();
+        const snapshot = await safeList(db.collection(Collections.TESTIMONIES)
+            .orderBy('submittedAt', 'desc'));
         
         const approvedTestimonies = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.approved === true) {
-                approvedTestimonies.push({ id: doc.id, ...data });
-            }
-        });
+        if (snapshot) {
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.approved === true) {
+                    approvedTestimonies.push({ id: doc.id, ...data });
+                }
+            });
+        }
 
         if (approvedTestimonies.length > 0) {
             approvedTestimonies.forEach(testimony => {
@@ -751,7 +757,7 @@ async function loadApprovedTestimonies() {
             approvedList.innerHTML = '<p style="text-align: center; opacity: 0.6;">No approved testimonies</p>';
         }
     } catch (error) {
-        console.error('Error loading approved testimonies:', error.message || error);
+        console.error('Error loading approved testimonies:', error.message || String(error));
     }
 }
 
@@ -803,7 +809,7 @@ async function approveTestimony(id) {
         });
         loadTestimoniesList();
     } catch (error) {
-        console.error('Error approving testimony:', error.message || error);
+        console.error('Error approving testimony:', error.message || String(error));
         alert('Error approving testimony');
     }
 }
@@ -814,7 +820,7 @@ async function rejectTestimony(id) {
             await db.collection(Collections.TESTIMONIES).doc(id).delete();
             loadTestimoniesList();
         } catch (error) {
-            console.error('Error rejecting testimony:', error.message || error);
+            console.error('Error rejecting testimony:', error.message || String(error));
             alert('Error rejecting testimony');
         }
     }
@@ -826,7 +832,7 @@ async function deleteTestimony(id) {
             await db.collection(Collections.TESTIMONIES).doc(id).delete();
             loadTestimoniesList();
         } catch (error) {
-            console.error('Error deleting testimony:', error.message || error);
+            console.error('Error deleting testimony:', error.message || String(error));
             alert('Error deleting testimony');
         }
     }
@@ -841,12 +847,11 @@ async function loadQuotesList() {
         const list = document.getElementById('quotesList');
         if (!list) return;
         list.innerHTML = '';
-
-        const snapshot = await db.collection(Collections.QUOTES)
-            .orderBy('createdAt', 'desc')
-            .get();
-
-        if (snapshot.empty) {
+ 
+        const snapshot = await safeList(db.collection(Collections.QUOTES)
+            .orderBy('createdAt', 'desc'));
+ 
+        if (!snapshot || snapshot.empty) {
             list.innerHTML = '<p class="empty-msg">No quotes added yet</p>';
             return;
         }
@@ -890,7 +895,7 @@ async function loadQuotesList() {
             list.appendChild(card);
         });
     } catch (error) {
-        console.error('Error loading quotes:', error.message || error);
+        console.error('Error loading quotes:', error.message || String(error));
     }
 }
 
@@ -900,7 +905,7 @@ async function deleteQuote(id) {
             await db.collection(Collections.QUOTES).doc(id).delete();
             loadQuotesList();
         } catch (error) {
-            console.error('Error deleting quote:', error.message || error);
+            console.error('Error deleting quote:', error.message || String(error));
             alert('Error deleting quote');
         }
     }
@@ -915,12 +920,11 @@ async function loadMomentsList() {
         const list = document.getElementById('momentsList');
         if (!list) return;
         list.innerHTML = '';
-
-        const snapshot = await db.collection(Collections.MOMENTS)
-            .orderBy('createdAt', 'desc')
-            .get();
-
-        if (snapshot.empty) {
+ 
+        const snapshot = await safeList(db.collection(Collections.MOMENTS)
+            .orderBy('createdAt', 'desc'));
+ 
+        if (!snapshot || snapshot.empty) {
             list.innerHTML = '<p class="empty-msg">No moments added yet</p>';
             return;
         }
@@ -950,7 +954,7 @@ async function loadMomentsList() {
         });
         if (window.lucide) lucide.createIcons();
     } catch (error) {
-        console.error('Error loading moments:', error.message || error);
+        console.error('Error loading moments:', error.message || String(error));
     }
 }
 
@@ -960,7 +964,7 @@ async function deleteMoment(id) {
             await db.collection(Collections.MOMENTS).doc(id).delete();
             loadMomentsList();
         } catch (error) {
-            console.error('Error deleting moment:', error.message || error);
+            console.error('Error deleting moment:', error.message || String(error));
             alert('Error deleting moment');
         }
     }
@@ -1042,7 +1046,7 @@ function setupForms() {
             
             alert('Theme settings saved successfully!');
         } catch (error) {
-            console.error('Error saving theme:', error.message || error);
+            console.error('Error saving theme:', error.message || String(error));
             alert('Error saving theme settings: ' + error.message);
         }
     });
@@ -1072,7 +1076,7 @@ function setupForms() {
             });
             alert('Hero settings saved successfully!');
         } catch (error) {
-            console.error('Error saving hero:', error.message || error);
+            console.error('Error saving hero:', error.message || String(error));
             alert('Error saving hero settings');
         }
     });
@@ -1095,7 +1099,7 @@ function setupForms() {
             });
             alert('Content saved successfully!');
         } catch (error) {
-            console.error('Error saving content:', error.message || error);
+            console.error('Error saving content:', error.message || String(error));
             alert('Error saving content');
         }
     });
@@ -1144,7 +1148,7 @@ function setupForms() {
             loadQuotesList();
             alert('Quote added successfully!');
         } catch (error) {
-            console.error('Error adding quote:', error.message || error);
+            console.error('Error adding quote:', error.message || String(error));
             alert('Error adding quote');
         }
     });
@@ -1164,7 +1168,7 @@ function setupForms() {
             loadMomentsList();
             alert('Photo moment added successfully!');
         } catch (error) {
-            console.error('Error adding photo moment:', error.message || error);
+            console.error('Error adding photo moment:', error.message || String(error));
             alert('Error adding photo moment');
         }
     });
@@ -1183,7 +1187,7 @@ function setupForms() {
             loadMomentsList();
             alert('Video moment added successfully!');
         } catch (error) {
-            console.error('Error adding video moment:', error.message || error);
+            console.error('Error adding video moment:', error.message || String(error));
             alert('Error adding video moment');
         }
     });
@@ -1219,7 +1223,7 @@ function setupForms() {
             await db.collection(Collections.SERVICES).doc('schedule').update(updates);
             alert('Service times saved successfully!');
         } catch (error) {
-            console.error('Error saving services:', error.message || error);
+            console.error('Error saving services:', error.message || String(error));
             alert('Error saving service times');
         }
     });
@@ -1245,7 +1249,7 @@ function setupForms() {
             loadSermonsList();
             alert('Sermon added successfully!');
         } catch (error) {
-            console.error('Error adding sermon:', error.message || error);
+            console.error('Error adding sermon:', error.message || String(error));
             alert('Error adding sermon');
         }
     });
@@ -1271,7 +1275,7 @@ function setupForms() {
             loadEventsList();
             alert('Event added successfully!');
         } catch (error) {
-            console.error('Error adding event:', error.message || error);
+            console.error('Error adding event:', error.message || String(error));
             alert('Error adding event');
         }
     });
@@ -1321,7 +1325,7 @@ function setupForms() {
             });
             alert('Contact information saved successfully!');
         } catch (error) {
-            console.error('Error saving contact info:', error.message || error);
+            console.error('Error saving contact info:', error.message || String(error));
             alert('Error saving contact information');
         }
     });
@@ -1333,13 +1337,12 @@ function setupForms() {
 async function loadMessagesList() {
     const list = document.getElementById('messagesList');
     if (!list) return;
-
+ 
     try {
-        const snapshot = await db.collection(Collections.MESSAGES)
-            .orderBy('submittedAt', 'desc')
-            .get();
-
-        if (snapshot.empty) {
+        const snapshot = await safeList(db.collection(Collections.MESSAGES)
+            .orderBy('submittedAt', 'desc'));
+ 
+        if (!snapshot || snapshot.empty) {
             list.innerHTML = '<p class="empty-msg">No messages yet.</p>';
             return;
         }
@@ -1362,7 +1365,7 @@ async function loadMessagesList() {
             `;
         }).join('');
     } catch (error) {
-        console.error('Error loading messages:', error.message || error);
+        console.error('Error loading messages:', error.message || String(error));
         list.innerHTML = '<p class="error-msg">Error loading messages.</p>';
     }
 }
@@ -1373,7 +1376,7 @@ async function deleteMessage(id) {
         await db.collection(Collections.MESSAGES).doc(id).delete();
         loadMessagesList();
     } catch (error) {
-        console.error('Error deleting message:', error.message || error);
+        console.error('Error deleting message:', error.message || String(error));
         alert('Error deleting message');
     }
 }

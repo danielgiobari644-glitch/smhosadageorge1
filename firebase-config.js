@@ -24,17 +24,36 @@ const Collections = {
 };
 
 // Initialize Firebase
-console.log("Connecting to Firebase project:", firebaseConfig.projectId);
+console.log("Initializing Firebase with project:", firebaseConfig.projectId);
 const app = firebase.initializeApp(firebaseConfig);
 
 // Initialize Firestore
 const db = app.firestore();
 const auth = app.auth();
-console.log("Firestore initialized using default instance");
+console.log("Firestore initialized for project:", firebaseConfig.projectId);
 
-db.settings({ 
-  cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
-});
+try {
+  // Standard settings for reliability
+  const settings = {
+    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+  };
+  
+  // Use long polling in sandboxed environments to bypass gRPC blocks
+  if (window.location.hostname.includes('run.app') || 
+      window.location.hostname.includes('web-container') ||
+      window.location.hostname.includes('europe-west1')) {
+    settings.experimentalForceLongPolling = true;
+  }
+  
+  // Only set settings if not already configured to avoid errors
+  db.settings(settings);
+  console.log("Firestore settings applied.");
+} catch (error) {
+  console.warn("Firestore settings already configured:", error.message);
+}
+
+// Global attempt to ensure network is active
+db.enableNetwork().catch(err => console.warn("db.enableNetwork error:", err));
 
 // Firestore Operation Types
 const OperationType = {
@@ -44,6 +63,22 @@ const OperationType = {
   LIST: 'list',
   GET: 'get',
   WRITE: 'write',
+};
+
+// Safe stringify helper to avoid circularity - defined at top level for reuse
+const safeStringify = (obj) => {
+  const cache = new Set();
+  try {
+    return JSON.stringify(obj, (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (cache.has(value)) return '[Circular]';
+        cache.add(value);
+      }
+      return value;
+    });
+  } catch (err) {
+    return '{"error":"Serialization failed"}';
+  }
 };
 
 // Robust Firestore Error Handler
@@ -62,18 +97,6 @@ function handleFirestoreError(error, operationType, path) {
     }
   }
   
-  // Safe stringify helper to avoid circularity
-  const safeStringify = (obj) => {
-    const cache = new Set();
-    return JSON.stringify(obj, (key, value) => {
-      if (typeof value === 'object' && value !== null) {
-        if (cache.has(value)) return '[Circular]';
-        cache.add(value);
-      }
-      return value;
-    });
-  };
-
   const authRef = (typeof firebase !== 'undefined' && typeof firebase.auth === 'function') ? firebase.auth() : null;
   const user = authRef ? authRef.currentUser : null;
   
@@ -90,15 +113,45 @@ function handleFirestoreError(error, operationType, path) {
     timestamp: new Date().toISOString()
   };
   
-  let errString;
-  try {
-    errString = safeStringify(errInfo);
-  } catch (e) {
-    errString = `{"error":"Serialization failed", "originalError":"${errorMessage.replace(/"/g, '\\"')}"}`;
-  }
-  
+  const errString = safeStringify(errInfo);
   console.error('[Firestore Error]', errorMessage, `(Op: ${operationType}, Path: ${path})`);
   throw new Error(errString);
+}
+
+// Global data fetching helper
+async function safeGet(ref, operationType = OperationType.GET) {
+    try {
+        // Try server first for fresh data
+        return await ref.get({ source: 'server' });
+    } catch (error) {
+        // If offline or timed out, try to get from cache or let SDK handle it
+        if (error.message && (error.message.includes('offline') || error.code === 'unavailable')) {
+            console.warn(`Firestore server unreachable for path: ${ref.path}. Falling back to default fetch...`);
+            try {
+                return await ref.get(); 
+            } catch (innerError) {
+                handleFirestoreError(innerError, operationType, ref.path);
+            }
+        }
+        handleFirestoreError(error, operationType, ref.path);
+    }
+}
+
+// Global list fetching helper
+async function safeList(query, operationType = OperationType.LIST) {
+    try {
+        return await query.get({ source: 'server' });
+    } catch (error) {
+        if (error.message && (error.message.includes('offline') || error.code === 'unavailable')) {
+            console.warn(`Firestore server unreachable for query. Falling back to default fetch...`);
+            try {
+                return await query.get();
+            } catch (innerError) {
+                handleFirestoreError(innerError, operationType, 'query');
+            }
+        }
+        handleFirestoreError(error, operationType, 'query');
+    }
 }
 
 // Global Error Catching
@@ -106,18 +159,15 @@ window.addEventListener('error', function(event) {
     if (event.message === 'Script error.') {
         console.warn('Masked "Script error." detected.');
     } else {
-        const msg = event.message || 'Unknown global error';
+        const msg = event.message || (event.error && event.error.message) || 'Unknown global error';
         console.error('Captured Global Error:', String(msg));
     }
 });
 
 window.addEventListener('unhandledrejection', function(event) {
     const reason = event.reason;
-    let message = 'Unknown rejection';
-    if (reason) {
-        message = reason.message || String(reason);
-    }
-    console.error('Captured Unhandled Rejection:', String(message));
+    const msg = reason?.message || String(reason || 'Unknown rejection');
+    console.error('Captured Unhandled Rejection:', String(msg));
 });
 
 // Test connection to Firestore
@@ -285,24 +335,35 @@ async function initializeDefaultData() {
   }
   
   // Mark initialization as complete
-  window.firebaseInitialized = true;
-  console.log('Firebase initialization complete');
-} catch (error) {
-  console.error('Error initializing default data:', error.message || error);
-  window.firebaseInitialized = true; // Still mark as initialized to allow login attempts
-}
+    window.firebaseInitialized = true;
+    console.log('Firebase initialization complete');
+  } catch (error) {
+    console.error('Error initializing default data:', error.message || String(error));
+    window.firebaseInitialized = true; // Still mark as initialized to allow login attempts
+  }
 }
 
-// Call initialization on load - only if likely to have permissions or as a primary setup
-// On public site, we should usually avoid this unless we're debugging or it's a first-time setup
-// But to be safe, let's allow it to attempt but fail silently if permission denied
-if (window.location.pathname.includes('admin.html')) {
-  initializeDefaultData();
-} else {
-  // On public site, just mark as initialized
-  window.firebaseInitialized = true;
-  console.log('Firebase ready for public access');
+// Global initialization
+async function startApp() {
+  console.log('Starting Firebase app initialization...');
+  
+  if (window.location.pathname.includes('admin.html')) {
+    await initializeDefaultData();
+  } else {
+    // On public site, verify connection before proceeding
+    let connected = await testConnection();
+    if (!connected) {
+      console.warn("Initial connection check failed on public site, retrying...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      connected = await testConnection();
+    }
+    
+    window.firebaseInitialized = true;
+    console.log('Firebase ready for public access. Connectivity:', connected ? 'Online' : 'Offline (limited functionality)');
+  }
 }
+
+startApp();
 
 // Helper function to wait for Firebase initialization
 function waitForFirebase() {
