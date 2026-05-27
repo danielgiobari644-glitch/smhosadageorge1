@@ -9,6 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeSite() {
+    // Boost image load speed and transitions globally
+    setupImagePerformanceBooster();
+
     // Load all dynamic content
     loadThemeSettings();
     loadAboutContent();
@@ -20,6 +23,7 @@ function initializeSite() {
     loadTestimonies();
     loadContactInfo();
     loadOfferingDetails();
+    loadCustomSections();
     
     // Setup navigation
     setupNavigation();
@@ -48,7 +52,7 @@ function setupNavigation() {
     const navToggle = document.getElementById('mobileToggle');
     const navMenu = document.getElementById('navMenu');
     const navLinks = document.querySelectorAll('.nav-link');
-    
+
     // Mobile menu toggle
     navToggle?.addEventListener('click', () => {
         const isActive = navMenu.classList.toggle('active');
@@ -218,12 +222,18 @@ async function loadThemeSettings() {
             if (theme.sectionSpacing) document.documentElement.style.setProperty('--section-spacing', theme.sectionSpacing + 'rem');
             if (theme.fontSizeBase) document.documentElement.style.setProperty('--font-size-base', theme.fontSizeBase + 'px');
 
-            // Apply dark mode if set
+            // Apply dark mode if set (strictly controlled by admin settings)
             if (theme.mode === 'dark') {
                 document.body.classList.add('dark-mode');
             } else {
                 document.body.classList.remove('dark-mode');
             }
+
+            // Trigger Hero entrance animation
+            setTimeout(() => {
+                const heroSec = document.getElementById('home') || document.querySelector('.hero');
+                heroSec?.classList.add('hero-ready');
+            }, 100);
             
             // Initialize Reveal Animations
             setupRevealAnimations();
@@ -234,23 +244,108 @@ async function loadThemeSettings() {
 }
 
 function setupRevealAnimations() {
+    // If we've already set up the dual observers, just run a fresh scan
+    if (window.revealObserverInstance) {
+        scanAndObserve();
+        return;
+    }
+
     const observerOptions = {
         threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
+        rootMargin: '0px 0px -40px 0px'
     };
 
-    const observer = new IntersectionObserver((entries) => {
+    const revealObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 entry.target.classList.add('revealed');
-                // Optional: stop observing once revealed
-                // observer.unobserve(entry.target);
+                revealObserver.unobserve(entry.target);
             }
         });
     }, observerOptions);
 
+    window.revealObserverInstance = revealObserver;
+
+    // Perform initial scan
+    scanAndObserve();
+
+    // Setup Mutation Observer to auto-observe any newly appended dynamic content from Firestore
+    const mutationObserver = new MutationObserver((mutations) => {
+        let hasNewElements = false;
+        mutations.forEach(mutation => {
+            if (mutation.addedNodes.length) {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.hasAttribute('data-reveal') || 
+                            node.hasAttribute('data-reveal-stagger') || 
+                            node.querySelector('[data-reveal], [data-reveal-stagger]')) {
+                            hasNewElements = true;
+                        }
+                    }
+                });
+            }
+        });
+
+        if (hasNewElements) {
+            scanAndObserve();
+        }
+    });
+
+    mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+}
+
+function scanAndObserve() {
+    const observer = window.revealObserverInstance;
+    if (!observer) return;
+
+    // Enable dynamic child staggering automatically for stagger groups
+    document.querySelectorAll('[data-reveal-stagger]').forEach(parent => {
+        const targets = parent.querySelectorAll('.card, .about-item, .offering-card, .service-card, .sermon-card, .event-poster-item, .moment-slide, .testimony-slide, .video-card');
+        targets.forEach((child, index) => {
+            if (!child.hasAttribute('data-reveal')) {
+                child.setAttribute('data-reveal', 'fade-up');
+            }
+            child.style.transitionDelay = `${index * 80}ms`;
+        });
+    });
+
+    // Register all elements with the IntersectionObserver
     document.querySelectorAll('[data-reveal]').forEach(el => {
-        observer.observe(el);
+        if (!el.classList.contains('revealed')) {
+            observer.observe(el);
+        }
+    });
+}
+
+// Global Image Fast Loading Fade-In Utility
+function setupImagePerformanceBooster() {
+    // Hook loaded states for globally generated or static images
+    document.addEventListener('load', (e) => {
+        if (e.target.tagName === 'IMG') {
+            e.target.classList.remove('loading');
+            e.target.classList.add('loaded');
+        }
+    }, true);
+
+    // Bootstrap current state of statically declared icons or logos
+    document.querySelectorAll('img').forEach(img => {
+        // Tag with standard performance parameters
+        if (!img.hasAttribute('loading')) {
+            img.setAttribute('loading', 'lazy');
+        }
+        if (!img.hasAttribute('decoding')) {
+            img.setAttribute('decoding', 'async');
+        }
+
+        const hasRealSrc = img.src && !img.src.endsWith('.html') && !img.src.endsWith('/') && img.getAttribute('src') !== "";
+        if (hasRealSrc && img.complete) {
+            img.classList.add('loaded');
+        } else {
+            img.classList.add('loading');
+        }
     });
 }
 
@@ -278,9 +373,21 @@ async function loadAboutContent() {
             if (visionText && content.vision) visionText.textContent = content.vision;
             if (welcomeText && content.welcomeMessage) welcomeText.textContent = content.welcomeMessage;
             
-            if (missionImg) missionImg.src = content.missionImage || DEFAULT_CHURCH_IMG;
-            if (visionImg) visionImg.src = content.visionImage || DEFAULT_CHURCH_IMG;
-            if (welcomeImg) welcomeImg.src = content.welcomeImage || DEFAULT_CHURCH_IMG;
+            if (missionImg) {
+                missionImg.classList.remove('loaded');
+                missionImg.classList.add('loading');
+                missionImg.src = content.missionImage || DEFAULT_CHURCH_IMG;
+            }
+            if (visionImg) {
+                visionImg.classList.remove('loaded');
+                visionImg.classList.add('loading');
+                visionImg.src = content.visionImage || DEFAULT_CHURCH_IMG;
+            }
+            if (welcomeImg) {
+                welcomeImg.classList.remove('loaded');
+                welcomeImg.classList.add('loading');
+                welcomeImg.src = content.welcomeImage || DEFAULT_CHURCH_IMG;
+            }
         }
     } catch (error) {
         console.error('Error loading about content:', error.message || String(error));
@@ -307,13 +414,13 @@ async function loadQuotes() {
             if (quote.type === 'image') {
                 container.innerHTML = `
                     <div class="quote-slide">
-                        <img src="${quote.imageUrl}" class="quote-item-image" alt="Daily Quote">
+                        <img src="${quote.imageUrl}" class="quote-item-image loading" alt="Daily Quote" loading="lazy" decoding="async">
                     </div>
                 `;
             } else if (quote.type === 'both') {
                 container.innerHTML = `
                     <div class="quote-slide">
-                        <img src="${quote.imageUrl}" class="quote-item-image" alt="Daily Quote" style="margin-bottom: 2rem;">
+                        <img src="${quote.imageUrl}" class="quote-item-image loading" alt="Daily Quote" style="margin-bottom: 2rem;" loading="lazy" decoding="async">
                         <blockquote>"${quote.text}"</blockquote>
                         ${quote.author ? `<cite>— ${quote.author}</cite>` : ''}
                     </div>
@@ -565,7 +672,7 @@ function createEventCard(event) {
     card.className = 'event-poster-item';
     
     card.innerHTML = `
-        <img src="${event.imageUrl}" alt="${event.title}" referrerPolicy="no-referrer">
+        <img class="loading" src="${event.imageUrl}" alt="${event.title}" referrerPolicy="no-referrer" loading="lazy" decoding="async">
     `;
     
     return card;
@@ -611,7 +718,7 @@ async function loadMoments() {
                 const slide = document.createElement('div');
                 slide.className = 'moment-slide';
                 slide.innerHTML = `
-                    <img src="${photo.url}" alt="${photo.title || ''}" referrerPolicy="no-referrer">
+                    <img class="loading" src="${photo.url}" alt="${photo.title || ''}" referrerPolicy="no-referrer" loading="lazy" decoding="async">
                     ${(photo.title || photo.description) ? `
                         <div class="moment-info">
                             ${photo.title ? `<h3>${photo.title}</h3>` : ''}
@@ -745,15 +852,63 @@ async function loadTestimonies() {
             testimoniesGrid.innerHTML = '';
             testimonySlidesCount = approvedTestimonies.length;
             
+            // Safe initials picker
+            const getNameInitials = (fullName) => {
+                if (!fullName) return 'SM';
+                const parts = fullName.trim().split(/\s+/);
+                if (parts.length >= 2) {
+                    return (parts[0][0] + parts[1][0]).toUpperCase().slice(0, 2);
+                }
+                return parts[0].slice(0, 2).toUpperCase();
+            };
+
+            // Deterministic gradient picker
+            const getPremiumGradient = (fullName) => {
+                const charCode = fullName && fullName.length > 0 ? fullName.charCodeAt(0) : 65;
+                const colors = [
+                    'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',   // Primary to Secondary
+                    'linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)',   // Spark Pink to Rose
+                    'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',   // Cyan to Indigo
+                    'linear-gradient(135deg, #f59e0b 0%, #ec4899 100%)',   // Amber to Pink
+                    'linear-gradient(135deg, #10b981 0%, #059669 100%)'    // Emerald to Forest
+                ];
+                return colors[charCode % colors.length];
+            };
+
             approvedTestimonies.forEach(testimony => {
                 const slide = document.createElement('div');
                 slide.className = 'testimony-slide';
+                
+                const initials = getNameInitials(testimony.name);
+                const bgGradient = getPremiumGradient(testimony.name);
+
                 slide.innerHTML = `
-                    <div class="testimony-quote-icon">
-                        <i data-lucide="quote"></i>
+                    <div class="testimony-glass-card">
+                        <div class="testimony-card-header">
+                            <span class="testimony-card-badge">
+                                <i data-lucide="sparkles"></i> Praise Report
+                            </span>
+                            <div class="testimony-card-quote">
+                                <i data-lucide="quote"></i>
+                            </div>
+                        </div>
+                        <div class="testimony-card-body">
+                            <p class="testimony-text">"${testimony.message}"</p>
+                        </div>
+                        <div class="testimony-card-footer">
+                            <div class="testimony-profile">
+                                <div class="testimony-avatar" style="background: ${bgGradient};">
+                                    <span>${initials}</span>
+                                </div>
+                                <div class="testimony-info">
+                                    <h4 class="testimony-name">${testimony.name}</h4>
+                                    <p class="testimony-meta">
+                                        <i data-lucide="badge-check"></i> Verified Blessing
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <p class="testimony-text">${testimony.message}</p>
-                    <div class="testimony-author">${testimony.name}</div>
                 `;
                 testimoniesGrid.appendChild(slide);
             });
@@ -776,11 +931,30 @@ async function loadTestimonies() {
 function setupTestimonySlider() {
     const prevBtn = document.getElementById('testimonyPrev');
     const nextBtn = document.getElementById('testimonyNext');
+    const dotsContainer = document.getElementById('testimonyDots');
     let testimonyInterval;
+
+    // Create slider indication dots
+    if (dotsContainer) {
+        dotsContainer.innerHTML = '';
+        for (let i = 0; i < testimonySlidesCount; i++) {
+            const dot = document.createElement('button');
+            dot.className = `slider-dot ${i === 0 ? 'active' : ''}`;
+            dot.setAttribute('aria-label', `Go to testimony stage ${i + 1}`);
+            dot.onclick = () => {
+                currentTestimonySlide = i;
+                updateTestimonySlider();
+                startAutoSlide();
+            };
+            dotsContainer.appendChild(dot);
+        }
+    }
 
     const startAutoSlide = () => {
         if (testimonyInterval) clearInterval(testimonyInterval);
-        testimonyInterval = setInterval(() => moveTestimonySlide(1), 10000);
+        testimonyInterval = setInterval(() => {
+            moveTestimonySlide(1);
+        }, 12000); // Friendly read time of 12s per testimony
     };
 
     if (prevBtn) prevBtn.onclick = () => {
@@ -798,10 +972,20 @@ function setupTestimonySlider() {
 function moveTestimonySlide(direction) {
     if (testimonySlidesCount === 0) return;
     currentTestimonySlide = (currentTestimonySlide + direction + testimonySlidesCount) % testimonySlidesCount;
+    updateTestimonySlider();
+}
+
+function updateTestimonySlider() {
     const track = document.getElementById('testimoniesGrid');
     if (track) {
         track.style.transform = `translateX(-${currentTestimonySlide * 100}%)`;
     }
+    
+    // Update active state on progress dots
+    const dots = document.querySelectorAll('#testimonyDots .slider-dot');
+    dots.forEach((dot, index) => {
+        dot.classList.toggle('active', index === currentTestimonySlide);
+    });
 }
 
 // ========================================
@@ -996,7 +1180,14 @@ function setupContactForm() {
             });
             
             form.reset();
-            showFeedback(feedback, 'Thank you for your message! We will get back to you soon.', 'success');
+            showFeedback(feedback, 'Message logged successfully! Opening your email app to send...', 'success');
+            
+            // Build and trigger the mailto client to adageorgestudio@gmail.com
+            setTimeout(() => {
+                const subject = encodeURIComponent(`Message from ${name}`);
+                const bodyMsg = encodeURIComponent(`Hi Salvation Ministries Ada George,\n\nI am contacting you from the website.\n\nName: ${name}\nEmail: ${email}\n\nMessage:\n${message}`);
+                window.location.href = `mailto:adageorgestudio@gmail.com?subject=${subject}&body=${bodyMsg}`;
+            }, 800);
         } catch (error) {
             console.error('Error submitting contact form:', error.message || String(error));
             showFeedback(feedback, 'An error occurred. Please try again later.', 'error');
@@ -1069,4 +1260,160 @@ function formatDate(timestamp) {
     
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return date.toLocaleDateString('en-US', options);
+}
+
+// ========================================
+// Dynamic Custom Sections Loading
+// ========================================
+
+async function loadCustomSections() {
+    try {
+        const container = document.getElementById('dynamic-sections');
+        if (!container) return;
+
+        // Fetch custom sections ordered by 'order'
+        const snapshot = await safeList(db.collection(Collections.SECTIONS).orderBy('order', 'asc'));
+        
+        if (!snapshot || snapshot.empty) {
+            container.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const sectionId = doc.id;
+
+            // Gather background inline styling
+            let bgStyle = '';
+            if (data.bgType === 'image' && data.bgImage) {
+                bgStyle = `background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.65)), url('${data.bgImage}'); background-size: cover; background-position: center; background-attachment: fixed;`;
+            } else if (data.bgType === 'gradient' && data.bgGradient) {
+                bgStyle = `background: ${data.bgGradient};`;
+            } else if (data.bgType === 'color' && data.bgColor) {
+                bgStyle = `background-color: ${data.bgColor};`;
+            } else {
+                bgStyle = `background: var(--bg-white);`;
+            }
+
+            // Gather title inline styling
+            let titleStyle = '';
+            let titleClass = '';
+            if (data.useGradient && data.titleGradient) {
+                titleStyle = `background: ${data.titleGradient}; -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: inline-block;`;
+                titleClass = 'gradient-title';
+            } else if (data.titleColor) {
+                titleStyle = `color: ${data.titleColor};`;
+            }
+
+            // Heuristic for dark background
+            const isDarkBg = data.bgType === 'image' || (data.bgType === 'color' && isColorDark(data.bgColor)) || (data.bgType === 'gradient' && isGradientDark(data.bgGradient));
+            let titleDefaultColor = isDarkBg ? '#ffffff' : 'var(--text-dark)';
+
+            let contentHTML = '';
+            if (data.contentType === 'text') {
+                contentHTML = `
+                    <div class="custom-section-text-content" style="color: ${isDarkBg ? '#f1f5f9' : 'var(--text-dark)'}; max-width: 900px; margin: 0 auto; line-height: 1.8; font-size: 1.125rem;">
+                        ${data.textHTML || ''}
+                    </div>
+                `;
+            } else if (data.contentType === 'cards' && data.cards) {
+                const cardsHTML = data.cards.map(card => {
+                    const iconPos = card.iconPosition || 'top';
+                    const iconStyle = `width: ${card.iconSize || '28px'}; height: ${card.iconSize || '28px'}; color: ${card.iconColor || 'var(--primary-color)'}; flex-shrink: 0;`;
+                    
+                    const cardBg = isDarkBg ? 'rgba(255,255,255,0.05)' : 'var(--card-bg, #ffffff)';
+                    const cardBorder = isDarkBg ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
+                    const cardColor = isDarkBg ? '#f1f5f9' : 'var(--text-dark)';
+                    const cardDescColor = isDarkBg ? '#94a3b8' : 'var(--text-muted)';
+                    const shadow = isDarkBg ? '0 10px 30px -10px rgba(0,0,0,0.5)' : 'var(--card-shadow, 0 4px 6px -1px rgba(0,0,0,0.05))';
+
+                    if (iconPos === 'left') {
+                        return `
+                            <div class="custom-dyn-card left-icon" style="background: ${cardBg}; border: 1px solid ${cardBorder}; box-shadow: ${shadow}; color: ${cardColor}; display: flex; text-align: left; padding: 2rem; border-radius: 16px;">
+                                ${card.icon ? `
+                                <div class="custom-dyn-icon" style="margin-right: 1.25rem; margin-top: 0.25rem; display: flex;">
+                                    <i data-lucide="${card.icon}" style="${iconStyle}"></i>
+                                </div>` : ''}
+                                <div class="custom-dyn-body">
+                                    <h3 style="color: ${cardColor}; font-size: 1.2rem; font-weight: 700; margin: 0 0 0.5rem 0; line-height: 1.4;">${card.title || ''}</h3>
+                                    <p style="color: ${cardDescColor}; margin: 0; font-size: 0.95rem; line-height: 1.6;">${card.description || ''}</p>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        return `
+                            <div class="custom-dyn-card top-icon" style="background: ${cardBg}; border: 1px solid ${cardBorder}; box-shadow: ${shadow}; color: ${cardColor}; display: flex; flex-direction: column; text-align: left; padding: 2rem; border-radius: 16px;">
+                                ${card.icon ? `
+                                <div class="custom-dyn-icon" style="margin-bottom: 1rem; display: flex;">
+                                    <i data-lucide="${card.icon}" style="${iconStyle}"></i>
+                                </div>` : ''}
+                                <div class="custom-dyn-body">
+                                    <h3 style="color: ${cardColor}; font-size: 1.2rem; font-weight: 700; margin: 0 0 0.5rem 0; line-height: 1.4;">${card.title || ''}</h3>
+                                    <p style="color: ${cardDescColor}; margin: 0; font-size: 0.95rem; line-height: 1.6;">${card.description || ''}</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
+
+                contentHTML = `
+                    <div class="custom-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
+                        ${cardsHTML}
+                    </div>
+                `;
+            }
+
+            html += `
+                <section class="custom-dynamic-section" id="dyn-${sectionId}" style="${bgStyle} position: relative; overflow: hidden;" data-reveal="fade-in">
+                    <div class="container" style="position: relative; z-index: 2;">
+                        <div class="section-header" style="margin-bottom: 3.5rem; text-align: center;">
+                            <h2 class="${titleClass}" style="${titleStyle || `color: ${titleDefaultColor};`}; font-size: clamp(1.8rem, 3.5vw, 2.5rem); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.75rem;">
+                                ${data.title || ''}
+                            </h2>
+                            <div class="section-divider" style="background: ${data.useGradient && data.titleGradient ? 'var(--primary-color)' : (data.titleColor || 'var(--primary-color)')}; margin: 0 auto; width: 60px; height: 4px; border-radius: 4px;"></div>
+                        </div>
+                        ${contentHTML}
+                    </div>
+                </section>
+            `;
+        });
+
+        container.innerHTML = html;
+
+        // Re-initialize Lucide icons for new content
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    } catch (error) {
+        console.error('Error loading custom sections:', error.message || String(error));
+    }
+}
+
+function isColorDark(colorHex) {
+    if (!colorHex || colorHex[0] !== '#') return false;
+    const cleanHex = colorHex.replace('#', '');
+    let r, g, b;
+    if (cleanHex.length === 3) {
+        r = parseInt(cleanHex[0] + cleanHex[0], 16);
+        g = parseInt(cleanHex[1] + cleanHex[1], 16);
+        b = parseInt(cleanHex[2] + cleanHex[2], 16);
+    } else if (cleanHex.length === 6) {
+        r = parseInt(cleanHex.slice(0, 2), 16);
+        g = parseInt(cleanHex.slice(2, 4), 16);
+        b = parseInt(cleanHex.slice(4, 6), 16);
+    } else {
+        return false;
+    }
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance < 0.65;
+}
+
+function isGradientDark(gradientStr) {
+    if (!gradientStr) return false;
+    const lower = gradientStr.toLowerCase();
+    if (lower.includes('black') || lower.includes('#00') || lower.includes('#0f') || lower.includes('#1') || lower.includes('#2') || lower.includes('rgb(0') || lower.includes('dark')) {
+        return true;
+    }
+    return false;
 }

@@ -6,9 +6,13 @@
     <script>
       window.onerror = function(msg, url, line, col, error) {
         console.error('GLOBAL ERROR:', msg || 'Unknown error');
-        return false;
+        return true; // Suppress default browser/iframe reporting
       };
       window.onunhandledrejection = function(event) {
+        try {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        } catch (e) {}
         const reason = event.reason;
         console.error('UNHANDLED REJECTION:', reason?.message || String(reason || 'Unknown rejection'));
       };
@@ -356,11 +360,11 @@
             <form id="loginForm">
                 <div class="form-group">
                     <label>Username</label>
-                    <input type="text" id="loginUsername" placeholder="Enter username" required>
+                    <input type="text" id="loginUsername" required>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" id="loginPassword" placeholder="Enter password" required>
+                    <input type="password" id="loginPassword" required>
                 </div>
                 <button type="submit" class="btn-admin" style="width: 100%; margin-top: 1.5rem;">Sign In</button>
                 
@@ -397,6 +401,7 @@
                 <a class="admin-nav-item" data-panel="quotes"><span>Daily Quotes</span></a>
                 <a class="admin-nav-item" data-panel="moments"><span>Moments</span></a>
                 <a class="admin-nav-item" data-panel="messages"><span>Messages</span></a>
+                <a class="admin-nav-item" data-panel="custom-sections"><span>Custom Sections</span></a>
                 <a class="admin-nav-item" data-panel="design"><span>Design System</span></a>
                 <div style="margin-top: 2rem; padding: 1rem; border-top: 1px solid rgba(0,0,0,0.05);">
                     <button id="logoutBtn" class="btn-admin" style="width: 100%; background: #f1f5f9; color: #ef4444; box-shadow: none;">Logout</button>
@@ -501,27 +506,27 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Logo URL</label>
-                                <input type="url" id="logoUrl" placeholder="https://example.com/logo.png">
+                                <input type="url" id="logoUrl">
                             </div>
                             <div class="form-group">
                                 <label>Favicon URL</label>
-                                <input type="url" id="faviconUrl" placeholder="https://example.com/favicon.png">
+                                <input type="url" id="faviconUrl">
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>YouTube Livestream URL</label>
-                                <input type="url" id="livestreamUrl" placeholder="https://youtube.com/@SalvationMinistries">
+                                <input type="url" id="livestreamUrl">
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Sermon Section Background</label>
-                                <input type="url" id="sermonBackgroundInput" placeholder="https://example.com/sermon-bg.jpg">
+                                <input type="url" id="sermonBackgroundInput">
                             </div>
                             <div class="form-group">
                                 <label>Testimony Section Background</label>
-                                <input type="url" id="testimonyBackgroundInput" placeholder="https://example.com/testimony-bg.jpg">
+                                <input type="url" id="testimonyBackgroundInput">
                             </div>
                         </div>
                         <button type="submit" class="btn-admin">Update Theme</button>
@@ -553,11 +558,11 @@
 
                         <div class="form-group">
                             <label>Main Heading</label>
-                            <input type="text" id="heroTitleInput" placeholder="Welcome to Salvation Ministries">
+                            <input type="text" id="heroTitleInput">
                         </div>
                         <div class="form-group">
                             <label>Subheading Text</label>
-                            <input type="text" id="heroSubtextInput" placeholder="Where Faith Meets Purpose">
+                            <input type="text" id="heroSubtextInput">
                         </div>
                         <button type="submit" class="btn-admin">Save Hero Settings</button>
                     </form>
@@ -575,7 +580,7 @@
                         </div>
                         <div class="form-group">
                             <label>Mission Image URL</label>
-                            <input type="url" id="missionImageUrl" placeholder="https://...">
+                            <input type="url" id="missionImageUrl">
                         </div>
                         <div class="form-group">
                             <label>Vision Statement</label>
@@ -583,7 +588,7 @@
                         </div>
                         <div class="form-group">
                             <label>Vision Image URL</label>
-                            <input type="url" id="visionImageUrl" placeholder="https://...">
+                            <input type="url" id="visionImageUrl">
                         </div>
                         <div class="form-group">
                             <label>Welcome Message</label>
@@ -591,7 +596,7 @@
                         </div>
                         <div class="form-group">
                             <label>Welcome Image URL</label>
-                            <input type="url" id="welcomeImageUrl" placeholder="https://...">
+                            <input type="url" id="welcomeImageUrl">
                         </div>
                         <button type="submit" class="btn-admin">Save Content</button>
                     </form>
@@ -726,7 +731,7 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>YouTube Video URL</label>
-                                <input type="url" id="sermonVideoUrl" placeholder="https://youtube.com/watch?v=..." required>
+                                <input type="url" id="sermonVideoUrl" required>
                             </div>
                             <div class="form-group">
                                 <label>Date</label>
@@ -755,7 +760,7 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Event Image URL</label>
-                                <input type="url" id="eventImageUrl" placeholder="https://example.com/image.jpg" required>
+                                <input type="url" id="eventImageUrl" required>
                             </div>
                             <div class="form-group">
                                 <label>Event Date</label>
@@ -816,11 +821,11 @@
                         </div>
                         <div id="quoteAuthorInput" class="form-group">
                             <label for="quoteAuthor">Author (Optional)</label>
-                            <input type="text" id="quoteAuthor" placeholder="e.g. Psalm 23:1">
+                            <input type="text" id="quoteAuthor">
                         </div>
                         <div id="quoteImageInput" class="form-group" style="display: none;">
                             <label for="quoteImageUrl">Image URL</label>
-                            <input type="url" id="quoteImageUrl" placeholder="https://...">
+                            <input type="url" id="quoteImageUrl">
                         </div>
                         <button type="submit" class="btn-admin">Add Quote</button>
                     </form>
@@ -843,7 +848,7 @@
                         <form id="momentPhotoForm">
                             <div class="form-group">
                                 <label for="momentPhotoUrl">Photo URL</label>
-                                <input type="url" id="momentPhotoUrl" placeholder="https://..." required>
+                                <input type="url" id="momentPhotoUrl" required>
                             </div>
                             <div class="form-group">
                                 <label for="momentPhotoTitle">Title (Optional)</label>
@@ -861,7 +866,7 @@
                         <form id="momentVideoForm">
                             <div class="form-group">
                                 <label for="momentVideoUrl">Video Link (Social Media/YouTube)</label>
-                                <input type="url" id="momentVideoUrl" placeholder="https://..." required>
+                                <input type="url" id="momentVideoUrl" required>
                             </div>
                             <div class="form-group">
                                 <label for="momentVideoTitle">Title</label>
@@ -917,6 +922,163 @@
 
                         <button type="submit" class="btn-admin">Save Information</button>
                     </form>
+                </div>
+            </div>
+
+            <!-- Custom Sections Panel -->
+            <div id="custom-sectionsPanel" class="admin-panel">
+                <div class="admin-card">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <h2 style="margin-bottom: 0;">Manage Dynamic Custom Sections</h2>
+                        <button type="button" id="addNewSectionBtn" class="btn-admin">
+                            <i data-lucide="plus"></i> Add New Section
+                        </button>
+                    </div>
+
+                    <!-- Sections List -->
+                    <div id="sectionsAdminList" class="admin-list">
+                        <!-- Existing Custom Sections listed here -->
+                    </div>
+
+                    <!-- Custom Section Editor Form (initially hidden) -->
+                    <div id="sectionFormContainer" style="display: none; margin-top: 2rem; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 2rem;">
+                        <h3 id="sectionFormTitle" style="margin-bottom: 1.5rem; color: var(--primary-color);">Create New Section</h3>
+                        <form id="customSectionForm" class="admin-form">
+                            <input type="hidden" id="sectionDocId">
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Section Title</label>
+                                    <input type="text" id="sectionTitleVal" placeholder="e.g. Dynamic Ministry Spotlight" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Section Order (Display Sequence)</label>
+                                    <input type="number" id="sectionOrderVal" min="0" value="0" placeholder="e.g. 1" required>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Title Coloring Mode</label>
+                                    <select id="sectionTitleColorMode">
+                                        <option value="color">Flat Color</option>
+                                        <option value="gradient">Gradient Accent</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="titleColorFormGroup">
+                                    <label>Title Color</label>
+                                    <input type="color" id="sectionTitleColor" value="#1e293b">
+                                </div>
+                                <div class="form-group" id="titleGradientFormGroup" style="display: none;">
+                                    <label>Title Gradient Accent Preset</label>
+                                    <select id="sectionTitleGradientSelect" class="form-control" style="margin-bottom: 0.5rem;">
+                                        <option value="linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)">Blue to Violet (Premium)</option>
+                                        <option value="linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)">Warm Pink to Rose</option>
+                                        <option value="linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)">Electric Cyan to Blue</option>
+                                        <option value="linear-gradient(135deg, #f59e0b 0%, #ec4899 100%)">Amber Sun to Pink</option>
+                                        <option value="custom">Custom CSS Gradient Expression</option>
+                                    </select>
+                                    <input type="text" id="sectionTitleGradientCustom" placeholder="e.g. linear-gradient(135deg, #ff007f, #7f00ff)" style="display: none;">
+                                </div>
+                            </div>
+
+                            <h3 style="margin: 2.5rem 0 1rem; color: var(--primary-color); font-size: 1.25rem;">Background Settings</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Background Type</label>
+                                    <select id="sectionBgType">
+                                        <option value="color">Solid Base Color</option>
+                                        <option value="gradient">Stunning Background Gradient</option>
+                                        <option value="image">Parallax Background Image</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="bgTypeColorGroup">
+                                    <label>Background Color</label>
+                                    <input type="color" id="sectionBgColor" value="#ffffff">
+                                </div>
+                                <div class="form-group" id="bgTypeGradientGroup" style="display: none;">
+                                    <label>Background Gradient Preset</label>
+                                    <select id="sectionBgGradientSelect" style="margin-bottom: 0.5rem;">
+                                        <option value="linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)">Slate Morning Light</option>
+                                        <option value="linear-gradient(135deg, #1e1b4b 0%, #030712 100%)">Royal Indigo Night</option>
+                                        <option value="linear-gradient(135deg, #0f172a 0%, #020617 100%)">Titanium Charcoal</option>
+                                        <option value="linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)">Heavenly Baby Blue</option>
+                                        <option value="custom">Custom CSS Gradient Expression</option>
+                                    </select>
+                                    <input type="text" id="sectionBgGradientCustom" placeholder="e.g. linear-gradient(to right, #ffffff, #eaeaea)" style="display: none;">
+                                </div>
+                                <div class="form-group" id="bgTypeImageGroup" style="display: none;">
+                                    <label>Background Image URL (Responsive Cover + Blur Overlay)</label>
+                                    <input type="url" id="sectionBgImageUrl" placeholder="https://images.unsplash.com/photo-...">
+                                </div>
+                            </div>
+
+                            <h3 style="margin: 2.5rem 0 1rem; color: var(--primary-color); font-size: 1.25rem;">Layout Content Format</h3>
+                            <div class="form-group">
+                                <label>Render Format</label>
+                                <select id="sectionContentType">
+                                    <option value="text">Rich Blocks / Plain HTML text</option>
+                                    <option value="cards">Custom Interactive Cards Grid</option>
+                                </select>
+                            </div>
+
+                            <!-- Text Content Layout Option -->
+                            <div id="sectionContentTypeText" style="margin-top: 1.5rem;">
+                                <div class="form-group">
+                                    <label>Formatted Text Content (Accepts normal paragraphs or markup like <strong> or <ul>)</label>
+                                    <textarea id="sectionTextHTMLVal" rows="6" placeholder="<p>Write premium descriptions, updates or biblical teachings...</p>"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Interactive Cards Grid Layout Option -->
+                            <div id="sectionContentTypeCards" style="display: none; margin-top: 1.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; background: #f8fafc; padding: 1rem; border-radius: 12px; border: 1px solid #e2e8f0;">
+                                    <h4 style="margin: 0; font-size: 1.05rem; color: #475569;">Cards Assembly</h4>
+                                    <button type="button" id="addNewCardBtn" class="btn-admin" style="background: var(--secondary-color); font-size: 0.85rem; padding: 0.5rem 1rem; box-shadow: none; margin: 0;">
+                                        <i data-lucide="plus"></i> Add a Card
+                                    </button>
+                                </div>
+                                <div id="cardsListAdminContainer" class="cards-admin-form-list" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                                    <!-- Cards row editors loaded dynamically here -->
+                                </div>
+                            </div>
+
+                            <!-- Form Action Buttons -->
+                            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 3rem; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 1.5rem;">
+                                <button type="button" id="cancelSectionBtn" class="btn-admin" style="background: #e2e8f0; color: #334155; box-shadow: none;">Cancel</button>
+                                <button type="submit" class="btn-admin">Save Section</button>
+                            </div>
+                        </form>
+
+                        <!-- Live Section Preview Container -->
+                        <div id="sectionPreviewWrapper" style="margin-top: 3.5rem; border-top: 2px dashed rgba(37, 99, 235, 0.25); padding-top: 2.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; background: #f8fafc; padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <div style="background: rgba(37, 99, 235, 0.1); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--primary-color);">
+                                        <i data-lucide="eye" style="width: 20px; height: 20px;"></i>
+                                    </div>
+                                    <div>
+                                        <h4 style="margin: 0; color: #1e293b; font-size: 1.1rem; font-weight: 700;">Live Section Preview (Draft)</h4>
+                                        <p style="margin: 0; font-size: 0.8rem; color: #64748b;">See how the custom section looks in real-time</p>
+                                    </div>
+                                </div>
+                                <span style="font-size: 0.75rem; background: #dbeafe; color: #1e40af; font-weight: 700; padding: 4px 10px; border-radius: 50px; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 0.25rem;">
+                                    <span style="display: inline-block; width: 6px; height: 6px; background: #2563eb; border-radius: 50%; animate: pulse;"></span> Interactive Preview
+                                </span>
+                            </div>
+                            
+                            <div id="liveSectionPreviewRender" style="border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; background: #ffffff; min-height: 250px; box-shadow: var(--shadow-lg);">
+                                <!-- Live rendered section markup gets updated here -->
+                            </div>
+                            
+                            <div style="margin-top: 1.25rem; text-align: center;">
+                                <p style="font-size: 0.825rem; color: #64748b; margin: 0; display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                                    <i data-lucide="sparkles" style="width: 14px; height: 14px; color: #f59e0b;"></i>
+                                    Updates instantly on any edits, title shifts, card insertions, or coloring toggles.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

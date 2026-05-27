@@ -17,6 +17,7 @@ function initializeAdmin() {
     setupLogin();
     setupNavigation();
     setupForms();
+    setupCustomSectionsAdmin();
     
     // Initialize icons
     if (window.lucide) {
@@ -235,6 +236,7 @@ async function loadAllData() {
     loadQuotesList();
     loadMomentsList();
     loadMessagesList();
+    loadCustomSectionsAdmin();
 }
 
 // ========================================
@@ -391,11 +393,11 @@ function addHeroImageRow(data = {}) {
         <div class="form-row" style="padding: 0 2rem;">
             <div class="form-group">
                 <label>Image URL</label>
-                <input type="url" class="hero-img-url" value="${data.url || ''}" placeholder="https://example.com/image.jpg" required>
+                <input type="url" class="hero-img-url" value="${data.url || ''}" required>
             </div>
             <div class="form-group">
                 <label>Link URL (Optional)</label>
-                <input type="url" class="hero-img-link" value="${data.link || '#'}" placeholder="https://example.com/page">
+                <input type="url" class="hero-img-link" value="${data.link || '#'}">
             </div>
         </div>
     `;
@@ -1403,3 +1405,825 @@ window.deleteTestimony = deleteTestimony;
 window.deleteMessage = deleteMessage;
 window.deleteQuote = deleteQuote;
 window.deleteMoment = deleteMoment;
+window.deleteSection = deleteSection;
+window.editSection = editSection;
+window.moveSection = moveSection;
+window.toggleCustomIconInput = toggleCustomIconInput;
+window.updateSectionLivePreview = updateSectionLivePreview;
+
+// ========================================
+// Dynamic Custom Sections Admin Management
+// ========================================
+
+async function loadCustomSectionsAdmin() {
+    try {
+        const listContainer = document.getElementById('sectionsAdminList');
+        if (!listContainer) return;
+        listContainer.innerHTML = '';
+
+        const snapshot = await safeList(db.collection(Collections.SECTIONS).orderBy('order', 'asc'));
+
+        if (!snapshot || snapshot.empty) {
+            listContainer.innerHTML = `
+                <div style="text-align: center; padding: 3rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; margin-top: 1rem;">
+                    <i data-lucide="layout" style="width: 48px; height: 48px; color: #94a3b8; margin-bottom: 1rem;"></i>
+                    <p style="color: #64748b; font-size: 1.1rem; font-weight: 500; margin: 0 0 0.5rem 0;">No dynamic custom sections added yet</p>
+                    <p style="color: #94a3b8; font-size: 0.9rem; margin: 0;">Add custom sections to dynamically spotlight ministries, missions, or special services!</p>
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+            return;
+        }
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const id = doc.id;
+            
+            const card = document.createElement('div');
+            card.className = 'item-card';
+            card.style = 'display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);';
+
+            const countText = data.contentType === 'cards' ? `${data.cards ? data.cards.length : 0} Cards` : 'Text Block';
+            const bgText = data.bgType === 'color' ? `Color (${data.bgColor})` : data.bgType === 'gradient' ? 'Gradients' : 'Image';
+
+            card.innerHTML = `
+                <div class="item-info" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <h4 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e293b;">${data.title || 'Untitled'}</h4>
+                    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem;">
+                        <span style="font-size: 0.75rem; background: #eff6ff; color: #2563eb; font-weight: 600; padding: 2px 8px; border-radius: 6px;">Order: ${data.order || 0}</span>
+                        <span style="font-size: 0.75rem; background: #f0fdf4; color: #16a34a; font-weight: 600; padding: 2px 8px; border-radius: 6px;">Format: ${countText}</span>
+                        <span style="font-size: 0.75rem; background: #faf5ff; color: #7c3aed; font-weight: 600; padding: 2px 8px; border-radius: 6px;">Bg: ${bgText}</span>
+                    </div>
+                </div>
+                <div class="item-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button class="btn-admin" style="background: #f1f5f9; color: #334155; padding: 0.4rem; min-width: auto; box-shadow: none;" onclick="moveSection('${id}', -1)" title="Move Up"><i data-lucide="chevron-up"></i></button>
+                    <button class="btn-admin" style="background: #f1f5f9; color: #334155; padding: 0.4rem; min-width: auto; box-shadow: none;" onclick="moveSection('${id}', 1)" title="Move Down"><i data-lucide="chevron-down"></i></button>
+                    <button class="btn-admin" style="background: var(--primary-color); padding: 0.5rem 1rem;" onclick="editSection('${id}')">Edit</button>
+                    <button class="btn-admin" style="background: #ef4444; padding: 0.5rem 1rem;" onclick="deleteSection('${id}')">Delete</button>
+                </div>
+            `;
+            listContainer.appendChild(card);
+        });
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    } catch (error) {
+        console.error('Error loading custom sections admin list:', error.message || String(error));
+    }
+}
+
+function setupCustomSectionsAdmin() {
+    const addNewBtn = document.getElementById('addNewSectionBtn');
+    const cancelBtn = document.getElementById('cancelSectionBtn');
+    const formContainer = document.getElementById('sectionFormContainer');
+    const form = document.getElementById('customSectionForm');
+    
+    // Background selection toggles
+    const bgTypeSelect = document.getElementById('sectionBgType');
+    const bgColGroup = document.getElementById('bgTypeColorGroup');
+    const bgGradGroup = document.getElementById('bgTypeGradientGroup');
+    const bgImgGroup = document.getElementById('bgTypeImageGroup');
+    
+    // Title selection toggles
+    const titleColorMode = document.getElementById('sectionTitleColorMode');
+    const titleColorGroup = document.getElementById('titleColorFormGroup');
+    const titleGradGroup = document.getElementById('titleGradientFormGroup');
+    const titleGradientSelect = document.getElementById('sectionTitleGradientSelect');
+    const titleGradientCustom = document.getElementById('sectionTitleGradientCustom');
+
+    // Layout content selectors
+    const bgGradientSelect = document.getElementById('sectionBgGradientSelect');
+    const bgGradientCustom = document.getElementById('sectionBgGradientCustom');
+    const contentTypeSelect = document.getElementById('sectionContentType');
+    const contentTypeTextDiv = document.getElementById('sectionContentTypeText');
+    const contentTypeCardsDiv = document.getElementById('sectionContentTypeCards');
+    const addCardBtn = document.getElementById('addNewCardBtn');
+
+    if (addNewBtn) {
+        addNewBtn.onclick = () => {
+            resetSectionForm();
+            document.getElementById('sectionFormTitle').textContent = 'Create New Custom Section';
+            formContainer.style.display = 'block';
+            formContainer.scrollIntoView({ behavior: 'smooth' });
+            updateSectionLivePreview();
+        };
+    }
+
+    if (cancelBtn) {
+        cancelBtn.onclick = () => {
+            formContainer.style.display = 'none';
+            resetSectionForm();
+        };
+    }
+
+    // Toggle Title color modes
+    if (titleColorMode) {
+        titleColorMode.onchange = () => {
+            if (titleColorMode.value === 'gradient') {
+                titleColorGroup.style.display = 'none';
+                titleGradGroup.style.display = 'block';
+            } else {
+                titleColorGroup.style.display = 'block';
+                titleGradGroup.style.display = 'none';
+            }
+            updateSectionLivePreview();
+        };
+    }
+
+    if (titleGradientSelect) {
+        titleGradientSelect.onchange = () => {
+            if (titleGradientSelect.value === 'custom') {
+                titleGradientCustom.style.display = 'block';
+            } else {
+                titleGradientCustom.style.display = 'none';
+            }
+            updateSectionLivePreview();
+        };
+    }
+
+    // Toggle background inputs
+    if (bgTypeSelect) {
+        bgTypeSelect.onchange = () => {
+            bgColGroup.style.display = 'none';
+            bgGradGroup.style.display = 'none';
+            bgImgGroup.style.display = 'none';
+
+            if (bgTypeSelect.value === 'color') {
+                bgColGroup.style.display = 'block';
+            } else if (bgTypeSelect.value === 'gradient') {
+                bgGradGroup.style.display = 'block';
+            } else if (bgTypeSelect.value === 'image') {
+                bgImgGroup.style.display = 'block';
+            }
+            updateSectionLivePreview();
+        };
+    }
+
+    if (bgGradientSelect) {
+        bgGradientSelect.onchange = () => {
+            if (bgGradientSelect.value === 'custom') {
+                bgGradientCustom.style.display = 'block';
+            } else {
+                bgGradientCustom.style.display = 'none';
+            }
+            updateSectionLivePreview();
+        };
+    }
+
+    // Toggle Content types
+    if (contentTypeSelect) {
+        contentTypeSelect.onchange = () => {
+            if (contentTypeSelect.value === 'text') {
+                contentTypeTextDiv.style.display = 'block';
+                contentTypeCardsDiv.style.display = 'none';
+            } else {
+                contentTypeTextDiv.style.display = 'none';
+                contentTypeCardsDiv.style.display = 'block';
+            }
+            updateSectionLivePreview();
+        };
+    }
+
+    // Dynamic Card Row Addition
+    if (addCardBtn) {
+        addCardBtn.onclick = () => {
+            addCardEditorRow();
+            updateSectionLivePreview();
+        };
+    }
+
+    // Hook up real-time live preview update using robust event delegation
+    if (form) {
+        form.addEventListener('input', () => {
+            updateSectionLivePreview();
+        });
+        form.addEventListener('change', () => {
+            updateSectionLivePreview();
+        });
+    }
+
+    // Form Submission
+    if (form) {
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            
+            try {
+                const docId = document.getElementById('sectionDocId').value;
+                const title = document.getElementById('sectionTitleVal').value.trim();
+                const order = parseInt(document.getElementById('sectionOrderVal').value || '0');
+                
+                // Title styles
+                const isGradientTitle = titleColorMode.value === 'gradient';
+                let finalTitleColor = document.getElementById('sectionTitleColor').value;
+                let finalTitleGradient = '';
+                if (isGradientTitle) {
+                    finalTitleGradient = titleGradientSelect.value === 'custom' 
+                        ? titleGradientCustom.value.trim() 
+                        : titleGradientSelect.value;
+                }
+
+                // Background settings
+                const bgType = bgTypeSelect.value;
+                const bgColor = document.getElementById('sectionBgColor').value;
+                let bgGradient = '';
+                if (bgType === 'gradient') {
+                    bgGradient = bgGradientSelect.value === 'custom'
+                        ? bgGradientCustom.value.trim()
+                        : bgGradientSelect.value;
+                }
+                const bgImage = document.getElementById('sectionBgImageUrl').value.trim();
+
+                // Content compilation
+                const contentType = contentTypeSelect.value;
+                const textHTML = document.getElementById('sectionTextHTMLVal').value;
+                
+                let cardsArray = [];
+                if (contentType === 'cards') {
+                    const rowNodes = document.querySelectorAll('.card-editor-row');
+                    rowNodes.forEach(row => {
+                        const titleInp = row.querySelector('.card-row-title').value.trim();
+                        const descInp = row.querySelector('.card-row-desc').value.trim();
+                        const iconSelect = row.querySelector('.card-row-icon-select').value;
+                        const iconCustom = row.querySelector('.card-row-icon-custom').value.trim();
+                        const iconSize = row.querySelector('.card-row-icon-size').value;
+                        const iconColor = row.querySelector('.card-row-icon-color').value;
+                        const iconPosition = row.querySelector('.card-row-icon-pos').value;
+
+                        const finalIcon = iconSelect === 'custom' ? iconCustom : iconSelect;
+
+                        cardsArray.push({
+                            title: titleInp,
+                            description: descInp,
+                            icon: finalIcon,
+                            iconSize: iconSize,
+                            iconColor: iconColor,
+                            iconPosition: iconPosition
+                        });
+                    });
+                }
+
+                const payload = {
+                    title,
+                    order,
+                    useGradient: isGradientTitle,
+                    titleColor: finalTitleColor,
+                    titleGradient: finalTitleGradient,
+                    bgType,
+                    bgColor,
+                    bgGradient,
+                    bgImage,
+                    contentType,
+                    textHTML,
+                    cards: cardsArray,
+                    createdAt: docId ? undefined : firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                // Clean undefined fields to avoid Firestore error
+                Object.keys(payload).forEach(key => {
+                    if (payload[key] === undefined) {
+                        delete payload[key];
+                    }
+                });
+
+                if (docId) {
+                    await db.collection(Collections.SECTIONS).doc(docId).update(payload);
+                    alert('Section updated successfully!');
+                } else {
+                    await db.collection(Collections.SECTIONS).add(payload);
+                    alert('Section created successfully!');
+                }
+
+                formContainer.style.display = 'none';
+                resetSectionForm();
+                loadCustomSectionsAdmin();
+            } catch (error) {
+                console.error('Error saving custom section:', error.message || String(error));
+                alert('Error saving custom section: ' + (error.message || String(error)));
+            }
+        };
+    }
+}
+
+function resetSectionForm() {
+    document.getElementById('sectionDocId').value = '';
+    document.getElementById('sectionTitleVal').value = '';
+    document.getElementById('sectionOrderVal').value = '0';
+    
+    // Reset title formatting
+    document.getElementById('sectionTitleColorMode').value = 'color';
+    document.getElementById('sectionTitleColor').value = '#1e293b';
+    const titleColorGroup = document.getElementById('titleColorFormGroup');
+    const titleGradGroup = document.getElementById('titleGradientFormGroup');
+    if (titleColorGroup) titleColorGroup.style.display = 'block';
+    if (titleGradGroup) titleGradGroup.style.display = 'none';
+
+    document.getElementById('sectionTitleGradientSelect').value = 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)';
+    document.getElementById('sectionTitleGradientCustom').value = '';
+    document.getElementById('sectionTitleGradientCustom').style.display = 'none';
+
+    // Reset backgrounds
+    document.getElementById('sectionBgType').value = 'color';
+    document.getElementById('bgTypeColorGroup').style.display = 'block';
+    document.getElementById('bgTypeGradientGroup').style.display = 'none';
+    document.getElementById('bgTypeImageGroup').style.display = 'none';
+    
+    document.getElementById('sectionBgColor').value = '#ffffff';
+    document.getElementById('sectionBgGradientSelect').value = 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)';
+    document.getElementById('sectionBgGradientCustom').value = '';
+    document.getElementById('sectionBgGradientCustom').style.display = 'none';
+    document.getElementById('sectionBgImageUrl').value = '';
+
+    // Reset content type
+    document.getElementById('sectionContentType').value = 'text';
+    document.getElementById('sectionContentTypeText').style.display = 'block';
+    document.getElementById('sectionContentTypeCards').style.display = 'none';
+    
+    document.getElementById('sectionTextHTMLVal').value = '';
+    document.getElementById('cardsListAdminContainer').innerHTML = '';
+}
+
+function addCardEditorRow(cardData = null) {
+    const list = document.getElementById('cardsListAdminContainer');
+    if (!list) return;
+
+    const row = document.createElement('div');
+    row.className = 'card-editor-row';
+    row.style = 'background: #fafafa; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.5rem; position: relative; margin-bottom: 0.5rem;';
+
+    const count = list.children.length + 1;
+
+    // Preset icons
+    const iconPresets = [
+        { val: 'heart', text: 'Heart (Hospitality/Care)' },
+        { val: 'users', text: 'Users (Community/Fellowship)' },
+        { val: 'book-open', text: 'Open Book (Scriptures/Sermons)' },
+        { val: 'sparkles', text: 'Sparkles (Grace/Miracles)' },
+        { val: 'flame', text: 'Flame (Holy Spirit/Fire)' },
+        { val: 'calendar', text: 'Calendar (Weeks/Schedules)' },
+        { val: 'music', text: 'Music (Worship/Choir)' },
+        { val: 'gift', text: 'Gift (Donations/Charity)' },
+        { val: 'mail', text: 'Mail (Contact/Connect)' },
+        { val: 'phone', text: 'Phone (Hotlines/Call)' },
+        { val: 'compass', text: 'Compass (Discipleship/Evangelism)' },
+        { val: 'star', text: 'Star (Faith/Blessing)' },
+        { val: 'custom', text: '— Use custom Lucide Icon name —' }
+    ];
+
+    const currentIcon = cardData?.icon || 'heart';
+    const isPreset = iconPresets.some(preset => preset.val === currentIcon);
+
+    const titleVal = cardData?.title || '';
+    const descVal = cardData?.description || '';
+    const iconSelectSelected = isPreset ? currentIcon : 'custom';
+    const iconCustomVal = isPreset ? '' : currentIcon;
+    const iconSizeVal = cardData?.iconSize || '28px';
+    const iconColorVal = cardData?.iconColor || '#2563eb';
+    const iconPositionVal = cardData?.iconPosition || 'top';
+
+    row.innerHTML = `
+        <button type="button" class="btn-delete-card" style="position: absolute; top: 1rem; right: 1rem; background: #fee2e2; color: #ef4444; border: none; border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 0.25rem;" onclick="this.closest('.card-editor-row').remove(); if(window.updateSectionLivePreview) window.updateSectionLivePreview();">
+            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i> Remove
+        </button>
+        <h5 style="margin-top: 0; margin-bottom: 1rem; font-size: 0.95rem; color: var(--primary-color);">Card #${count}</h5>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label>Card Title</label>
+                <input type="text" class="card-row-title" value="${titleVal}" placeholder="e.g. Prayer Group" required>
+            </div>
+            <div class="form-group">
+                <label>Icon Selection</label>
+                <select class="card-row-icon-select" onchange="toggleCustomIconInput(this)">
+                    ${iconPresets.map(preset => `<option value="${preset.val}" ${preset.val === iconSelectSelected ? 'selected' : ''}>${preset.text}</option>`).join('')}
+                </select>
+                <input type="text" class="card-row-icon-custom" value="${iconCustomVal}" placeholder="Lucide icon name (e.g. cross, flame)" style="display: ${iconSelectSelected === 'custom' ? 'block' : 'none'}; margin-top: 0.5rem;">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Card Description</label>
+            <textarea class="card-row-desc" rows="2" placeholder="Brief card details..." required>${descVal}</textarea>
+        </div>
+
+        <div class="form-row" style="margin-bottom: 0;">
+            <div class="form-group">
+                <label>Icon Position</label>
+                <select class="card-row-icon-pos">
+                    <option value="top" ${iconPositionVal === 'top' ? 'selected' : ''}>Top alignment</option>
+                    <option value="left" ${iconPositionVal === 'left' ? 'selected' : ''}>Left alignment</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Icon Size</label>
+                <select class="card-row-icon-size">
+                    <option value="20px" ${iconSizeVal === '20px' ? 'selected' : ''}>Small (20px)</option>
+                    <option value="24px" ${iconSizeVal === '24px' ? 'selected' : ''}>Medium (24px)</option>
+                    <option value="28px" ${iconSizeVal === '28px' ? 'selected' : ''}>Large (28px - Default)</option>
+                    <option value="36px" ${iconSizeVal === '36px' ? 'selected' : ''}>Extra Large (36px)</option>
+                    <option value="48px" ${iconSizeVal === '48px' ? 'selected' : ''}>Giant (48px)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Icon Highlight Color</label>
+                <input type="color" class="card-row-icon-color" value="${iconColorVal}">
+            </div>
+        </div>
+    `;
+
+    list.appendChild(row);
+
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+function toggleCustomIconInput(selectElem) {
+    const customInput = selectElem.nextElementSibling;
+    if (customInput) {
+        customInput.style.display = selectElem.value === 'custom' ? 'block' : 'none';
+    }
+}
+
+async function editSection(id) {
+    try {
+        const doc = await db.collection(Collections.SECTIONS).doc(id).get();
+        if (!doc.exists) return;
+        
+        const data = doc.data();
+        resetSectionForm();
+
+        // Populate basic values
+        document.getElementById('sectionDocId').value = id;
+        document.getElementById('sectionTitleVal').value = data.title || '';
+        document.getElementById('sectionOrderVal').value = data.order || '0';
+
+        // Title styling
+        const titleModeSelect = document.getElementById('sectionTitleColorMode');
+        const isGradient = data.useGradient || false;
+        titleModeSelect.value = isGradient ? 'gradient' : 'color';
+
+        const titleColorGroup = document.getElementById('titleColorFormGroup');
+        const titleGradGroup = document.getElementById('titleGradientFormGroup');
+        const titleGradientSelect = document.getElementById('sectionTitleGradientSelect');
+        const titleGradientCustom = document.getElementById('sectionTitleGradientCustom');
+
+        if (isGradient) {
+            titleColorGroup.style.display = 'none';
+            titleGradGroup.style.display = 'block';
+
+            const presetOption = Array.from(titleGradientSelect.options).find(opt => opt.value === data.titleGradient);
+            if (presetOption) {
+                titleGradientSelect.value = data.titleGradient;
+                titleGradientCustom.style.display = 'none';
+            } else {
+                titleGradientSelect.value = 'custom';
+                titleGradientCustom.value = data.titleGradient || '';
+                titleGradientCustom.style.display = 'block';
+            }
+        } else {
+            titleColorGroup.style.display = 'block';
+            titleGradGroup.style.display = 'none';
+            document.getElementById('sectionTitleColor').value = data.titleColor || '#1e293b';
+        }
+
+        // Background settings
+        const bgTypeSelect = document.getElementById('sectionBgType');
+        bgTypeSelect.value = data.bgType || 'color';
+
+        const bgColGroup = document.getElementById('bgTypeColorGroup');
+        const bgGradGroup = document.getElementById('bgTypeGradientGroup');
+        const bgImgGroup = document.getElementById('bgTypeImageGroup');
+
+        bgColGroup.style.display = 'none';
+        bgGradGroup.style.display = 'none';
+        bgImgGroup.style.display = 'none';
+
+        if (data.bgType === 'color') {
+            bgColGroup.style.display = 'block';
+            document.getElementById('sectionBgColor').value = data.bgColor || '#ffffff';
+        } else if (data.bgType === 'gradient') {
+            bgGradGroup.style.display = 'block';
+            const bgGradSelect = document.getElementById('sectionBgGradientSelect');
+            const bgGradCustom = document.getElementById('sectionBgGradientCustom');
+
+            const bgPresetOption = Array.from(bgGradSelect.options).find(opt => opt.value === data.bgGradient);
+            if (bgPresetOption) {
+                bgGradSelect.value = data.bgGradient;
+                bgGradCustom.style.display = 'none';
+            } else {
+                bgGradSelect.value = 'custom';
+                bgGradCustom.value = data.bgGradient || '';
+                bgGradCustom.style.display = 'block';
+            }
+        } else if (data.bgType === 'image') {
+            bgImgGroup.style.display = 'block';
+            document.getElementById('sectionBgImageUrl').value = data.bgImage || '';
+        }
+
+        // Layout settings
+        const layoutSelect = document.getElementById('sectionContentType');
+        layoutSelect.value = data.contentType || 'text';
+
+        const layoutTextDiv = document.getElementById('sectionContentTypeText');
+        const layoutCardsDiv = document.getElementById('sectionContentTypeCards');
+
+        if (data.contentType === 'cards') {
+            layoutTextDiv.style.display = 'none';
+            layoutCardsDiv.style.display = 'block';
+
+            if (data.cards && data.cards.length > 0) {
+                data.cards.forEach(card => {
+                    addCardEditorRow(card);
+                });
+            }
+        } else {
+            layoutTextDiv.style.display = 'block';
+            layoutCardsDiv.style.display = 'none';
+            document.getElementById('sectionTextHTMLVal').value = data.textHTML || '';
+        }
+
+        // Display compiler window
+        const formContainer = document.getElementById('sectionFormContainer');
+        document.getElementById('sectionFormTitle').textContent = `Edit Section: ${data.title || 'Untitled'}`;
+        formContainer.style.display = 'block';
+        formContainer.scrollIntoView({ behavior: 'smooth' });
+        updateSectionLivePreview();
+    } catch (error) {
+        console.error('Error fetching section for edit:', error.message || String(error));
+        alert('Could not edit this section.');
+    }
+}
+
+async function deleteSection(id) {
+    if (confirm('Are you sure you want to delete this custom section? This will remove it from the home page completely!')) {
+        try {
+            await db.collection(Collections.SECTIONS).doc(id).delete();
+            loadCustomSectionsAdmin();
+        } catch (error) {
+            console.error('Error deleting section:', error.message || String(error));
+            alert('Error deleting section');
+        }
+    }
+}
+
+async function moveSection(id, direction) {
+    try {
+        const sectionsRef = db.collection(Collections.SECTIONS);
+        const snapshot = await safeList(sectionsRef.orderBy('order', 'asc'));
+        
+        if (!snapshot || snapshot.empty) return;
+
+        const list = [];
+        snapshot.forEach(doc => {
+            list.push({ id: doc.id, ...doc.data() });
+        });
+
+        const index = list.findIndex(item => item.id === id);
+        if (index === -1) return;
+
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= list.length) {
+            return; // Can't move past boundaries
+        }
+
+        // Swap orders
+        const tempOrder = list[index].order || 0;
+        const potentialCollidingOrder = list[targetIndex].order || 0;
+
+        // If they have identical orders, fix the whole sequence first
+        let currentOrder = tempOrder;
+        let swapOrder = potentialCollidingOrder;
+
+        if (currentOrder === swapOrder) {
+            // Assign sequential orders
+            for (let i = 0; i < list.length; i++) {
+                await sectionsRef.doc(list[i].id).update({ order: i });
+                list[i].order = i;
+            }
+            // Re-fetch index and swap
+            currentOrder = index;
+            swapOrder = targetIndex;
+        }
+
+        await sectionsRef.doc(list[index].id).update({ order: swapOrder });
+        await sectionsRef.doc(list[targetIndex].id).update({ order: currentOrder });
+
+        loadCustomSectionsAdmin();
+    } catch (error) {
+        console.error('Error reordering sections:', error.message || String(error));
+        alert('Could not update sequence. Please try again.');
+    }
+}
+
+// ========================================
+// Live Preview Renderer Routine
+// ========================================
+
+function updateSectionLivePreview() {
+    try {
+        const previewContainer = document.getElementById('liveSectionPreviewRender');
+        if (!previewContainer) return;
+
+        const titleVal = document.getElementById('sectionTitleVal').value.trim() || 'Your Section Title';
+        const titleMode = document.getElementById('sectionTitleColorMode').value;
+        const useGradient = titleMode === 'gradient';
+        
+        // Extract title coloring settings
+        let finalTitleColor = document.getElementById('sectionTitleColor').value;
+        let finalTitleGradient = '';
+        if (useGradient) {
+            const titleGradientSelect = document.getElementById('sectionTitleGradientSelect').value;
+            finalTitleGradient = titleGradientSelect === 'custom' 
+                ? document.getElementById('sectionTitleGradientCustom').value.trim() 
+                : titleGradientSelect;
+            if (!finalTitleGradient) {
+                finalTitleGradient = 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)';
+            }
+        }
+
+        // Background settings
+        const bgType = document.getElementById('sectionBgType').value;
+        const bgColor = document.getElementById('sectionBgColor').value;
+        
+        let bgGradient = '';
+        if (bgType === 'gradient') {
+            const bgGradientSelect = document.getElementById('sectionBgGradientSelect').value;
+            bgGradient = bgGradientSelect === 'custom'
+                ? document.getElementById('sectionBgGradientCustom').value.trim()
+                : bgGradientSelect;
+            if (!bgGradient) {
+                bgGradient = 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)';
+            }
+        }
+        const bgImage = document.getElementById('sectionBgImageUrl').value.trim();
+
+        // Gather background inline styling with cozy standard padding
+        let bgStyle = '';
+        if (bgType === 'image' && bgImage) {
+            bgStyle = `background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.65)), url('${bgImage}'); background-size: cover; background-position: center; background-attachment: scroll; padding: 4rem 2rem;`;
+        } else if (bgType === 'gradient' && bgGradient) {
+            bgStyle = `background: ${bgGradient}; padding: 4rem 2rem;`;
+        } else if (bgType === 'color' && bgColor) {
+            bgStyle = `background-color: ${bgColor}; padding: 4rem 2rem;`;
+        } else {
+            bgStyle = `background: var(--bg-white, #ffffff); padding: 4rem 2rem;`;
+        }
+
+        // Gather title inline styling
+        let titleStyle = '';
+        let titleClass = '';
+        if (useGradient && finalTitleGradient) {
+            titleStyle = `background: ${finalTitleGradient}; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; display: inline-block;`;
+            titleClass = 'gradient-title';
+        } else if (finalTitleColor) {
+            titleStyle = `color: ${finalTitleColor};`;
+        }
+
+        // Heuristics for dark background to determine text readability colors
+        const isDarkBg = bgType === 'image' || (bgType === 'color' && isColorDark(bgColor)) || (bgType === 'gradient' && isGradientDark(bgGradient));
+        let titleDefaultColor = isDarkBg ? '#ffffff' : 'var(--text-dark, #0f172a)';
+
+        const contentType = document.getElementById('sectionContentType').value;
+        
+        // Avoid undefined on text area
+        const textInpElement = document.getElementById('sectionTextHTMLVal');
+        const textHTML = textInpElement ? textInpElement.value : '';
+
+        let contentHTML = '';
+        if (contentType === 'text') {
+            contentHTML = `
+                <div class="custom-section-text-content" style="color: ${isDarkBg ? '#f1f5f9' : 'var(--text-dark, #0f172a)'}; max-width: 900px; margin: 0 auto; line-height: 1.8; font-size: 1.1rem; text-align: left;">
+                    ${textHTML || '<p style="color: #94a3b8; font-style: italic; text-align: center; margin: 0;">Enter formatted or plain text content in the form field above to see it here...</p>'}
+                </div>
+            `;
+        } else if (contentType === 'cards') {
+            const rowNodes = document.querySelectorAll('.card-editor-row');
+            const cardsArray = [];
+            rowNodes.forEach(row => {
+                const titleInp = row.querySelector('.card-row-title').value.trim();
+                const descInp = row.querySelector('.card-row-desc').value.trim();
+                const iconSelect = row.querySelector('.card-row-icon-select').value;
+                const iconCustom = row.querySelector('.card-row-icon-custom').value.trim();
+                const iconSize = row.querySelector('.card-row-icon-size').value;
+                const iconColor = row.querySelector('.card-row-icon-color').value;
+                const iconPosition = row.querySelector('.card-row-icon-pos').value;
+
+                const finalIcon = iconSelect === 'custom' ? iconCustom : iconSelect;
+
+                cardsArray.push({
+                    title: titleInp,
+                    description: descInp,
+                    icon: finalIcon,
+                    iconSize: iconSize,
+                    iconColor: iconColor,
+                    iconPosition: iconPosition
+                });
+            });
+
+            if (cardsArray.length === 0) {
+                contentHTML = `
+                    <div style="text-align: center; color: #94a3b8; font-style: italic; padding: 2rem;">
+                        No cards added yet. Click 'Add Card' above to start organizing items!
+                    </div>
+                `;
+            } else {
+                const cardsHTML = cardsArray.map(card => {
+                    const iconPos = card.iconPosition || 'top';
+                    const iconStyle = `width: ${card.iconSize || '28px'}; height: ${card.iconSize || '28px'}; color: ${card.iconColor || 'var(--primary-color)'}; flex-shrink: 0;`;
+                    
+                    const cardBg = isDarkBg ? 'rgba(255,255,255,0.06)' : 'var(--card-bg, #ffffff)';
+                    const cardBorder = isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)';
+                    const cardColor = isDarkBg ? '#f8fafc' : 'var(--text-dark)';
+                    const cardDescColor = isDarkBg ? '#cbd5e1' : 'var(--text-muted)';
+                    const shadow = isDarkBg ? '0 10px 30px -10px rgba(0,0,0,0.5)' : 'var(--card-shadow, 0 4px 6px -1px rgba(0,0,0,0.05))';
+
+                    if (iconPos === 'left') {
+                        return `
+                            <div class="custom-dyn-card left-icon" style="background: ${cardBg}; border: 1px solid ${cardBorder}; box-shadow: ${shadow}; color: ${cardColor}; display: flex; text-align: left; padding: 1.5rem; border-radius: 12px;">
+                                ${card.icon ? `
+                                <div class="custom-dyn-icon" style="margin-right: 1.25rem; margin-top: 0.2rem; display: flex;">
+                                    <i data-lucide="${card.icon}" style="${iconStyle}"></i>
+                                </div>` : ''}
+                                <div class="custom-dyn-body">
+                                    <h3 style="color: ${cardColor}; font-size: 1.1rem; font-weight: 700; margin: 0 0 0.5rem 0; line-height: 1.4;">${card.title || 'Untitled Card'}</h3>
+                                    <p style="color: ${cardDescColor}; margin: 0; font-size: 0.9rem; line-height: 1.5;">${card.description || 'Enter details...'}</p>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        return `
+                            <div class="custom-dyn-card top-icon" style="background: ${cardBg}; border: 1px solid ${cardBorder}; box-shadow: ${shadow}; color: ${cardColor}; display: flex; flex-direction: column; text-align: left; padding: 1.5rem; border-radius: 12px;">
+                                ${card.icon ? `
+                                <div class="custom-dyn-icon" style="margin-bottom: 1rem; display: flex;">
+                                    <i data-lucide="${card.icon}" style="${iconStyle}"></i>
+                                </div>` : ''}
+                                <div class="custom-dyn-body">
+                                    <h3 style="color: ${cardColor}; font-size: 1.1rem; font-weight: 700; margin: 0 0 0.5rem 0; line-height: 1.4;">${card.title || 'Untitled Card'}</h3>
+                                    <p style="color: ${cardDescColor}; margin: 0; font-size: 0.9rem; line-height: 1.5;">${card.description || 'Enter details...'}</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
+
+                contentHTML = `
+                    <div class="custom-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; width: 100%;">
+                        ${cardsHTML}
+                    </div>
+                `;
+            }
+        }
+
+        const previewHTML = `
+            <div style="${bgStyle} position: relative; overflow: hidden; width: 100%; box-sizing: border-box; text-align: center;">
+                <div style="max-width: 1100px; margin: 0 auto; position: relative; z-index: 2; width: 100%; box-sizing: border-box;">
+                    <div style="margin-bottom: 2.5rem; text-align: center;">
+                        <h2 class="${titleClass}" style="${titleStyle || `color: ${titleDefaultColor};`}; font-size: clamp(1.5rem, 3.2vw, 2.1rem); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.75rem; margin-top: 0;">
+                            ${titleVal}
+                        </h2>
+                        <div style="background: ${useGradient && finalTitleGradient ? 'var(--primary-color)' : (finalTitleColor || 'var(--primary-color)')}; margin: 0 auto; width: 50px; height: 4px; border-radius: 4px;"></div>
+                    </div>
+                    ${contentHTML}
+                </div>
+            </div>
+        `;
+
+        previewContainer.innerHTML = previewHTML;
+
+        // Re-initialize Lucide icons for new content
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    } catch (err) {
+        console.error('Error updating live preview:', err);
+    }
+}
+
+function isColorDark(colorHex) {
+    if (!colorHex || colorHex[0] !== '#') return false;
+    const cleanHex = colorHex.replace('#', '');
+    let r, g, b;
+    if (cleanHex.length === 3) {
+        r = parseInt(cleanHex[0] + cleanHex[0], 16);
+        g = parseInt(cleanHex[1] + cleanHex[1], 16);
+        b = parseInt(cleanHex[2] + cleanHex[2], 16);
+    } else if (cleanHex.length === 6) {
+        r = parseInt(cleanHex.slice(0, 2), 16);
+        g = parseInt(cleanHex.slice(2, 4), 16);
+        b = parseInt(cleanHex.slice(4, 6), 16);
+    } else {
+        return false;
+    }
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance < 0.65;
+}
+
+function isGradientDark(gradientStr) {
+    if (!gradientStr) return false;
+    const lower = gradientStr.toLowerCase();
+    if (lower.includes('black') || lower.includes('#00') || lower.includes('#0f') || lower.includes('#1') || lower.includes('#2') || lower.includes('rgb(0') || lower.includes('dark')) {
+        return true;
+    }
+    return false;
+}

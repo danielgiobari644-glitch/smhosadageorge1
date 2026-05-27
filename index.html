@@ -6,9 +6,13 @@
     <script>
       window.onerror = function(msg, url, line, col, error) {
         console.error('GLOBAL ERROR:', msg || 'Unknown error');
-        return false;
+        return true; // Suppress default browser/iframe reporting
       };
       window.onunhandledrejection = function(event) {
+        try {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        } catch (e) {}
         const reason = event.reason;
         console.error('UNHANDLED REJECTION:', reason?.message || String(reason || 'Unknown rejection'));
       };
@@ -28,9 +32,11 @@
                 <img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=200&q=80" alt="Salvation Ministries Logo">
                 <span>Salvation Ministries</span>
             </a>
-            <button class="mobile-toggle" id="mobileToggle">
-                <i data-lucide="menu"></i>
-            </button>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button class="mobile-toggle" id="mobileToggle">
+                    <i data-lucide="menu"></i>
+                </button>
+            </div>
             <ul class="nav-menu" id="navMenu">
                 <li><a href="#home" class="nav-link">Home</a></li>
                 <li><a href="#about" class="nav-link">About</a></li>
@@ -56,43 +62,88 @@
         </div>
     </section>
 
-    <!-- About Section -->
-    <section id="about" class="about-split" data-reveal>
+    <!-- Faith Pillars & Numbers Grid Section -->
+    <section id="pillars" style="background: var(--bg-white); border-bottom: 1px solid rgba(0, 0, 0, 0.05);" data-reveal="fade-in">
         <div class="container">
-            <div class="about-item" id="welcomeSection">
+            <div class="section-header" style="text-align: center; margin-bottom: 4rem;">
+                <span class="teaser-label" style="font-size: 0.85rem; letter-spacing: 0.15em; font-weight: 800; color: var(--primary-color); text-transform: uppercase;">OUR PILLARS</span>
+                <h2 class="section-title" style="margin-top: 0.5rem; font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.2;">Built Upon <span class="gradient-text font-bold">Divine Truths & Love</span></h2>
+                <p class="section-subtitle" style="max-width: 600px; margin: 1rem auto 0; color: var(--text-muted);">Guided by the dynamic word of God to bring transformation, salvation, and hope to communities.</p>
+            </div>
+            
+            <div class="grid" data-reveal-stagger style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2.5rem;">
+                <div class="card" style="padding: 2.5rem; border-radius: var(--radius-lg); text-align: center; border-color: rgba(0, 0, 0, 0.03);">
+                    <div style="width: 50px; height: 50px; border-radius: 50%; background: rgba(37, 99, 235, 0.08); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; color: var(--primary-color);">
+                        <i data-lucide="music"></i>
+                    </div>
+                    <h3 style="font-size: 1.35rem; margin-bottom: 0.5rem; font-family: var(--font-display);">Praise & Worship</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem;">Cultivating vibrant, heartfelt hymns and worship sessions that host God's beautiful presence.</p>
+                </div>
+                
+                <div class="card" style="padding: 2.5rem; border-radius: var(--radius-lg); text-align: center; border-color: rgba(0, 0, 0, 0.03);">
+                    <div style="width: 50px; height: 50px; border-radius: 50%; background: rgba(124, 58, 237, 0.08); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; color: var(--secondary-color);">
+                        <i data-lucide="book-open"></i>
+                    </div>
+                    <h3 style="font-size: 1.35rem; margin-bottom: 0.5rem; font-family: var(--font-display);">Sound Doctrine</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem;">Uncompromising teaching of the Holy Scriptures to equip believers with truth and life purpose.</p>
+                </div>
+                
+                <div class="card" style="padding: 2.5rem; border-radius: var(--radius-lg); text-align: center; border-color: rgba(0, 0, 0, 0.03);">
+                    <div style="width: 50px; height: 50px; border-radius: 50%; background: rgba(245, 158, 11, 0.08); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; color: var(--accent-color);">
+                        <i data-lucide="globe"></i>
+                    </div>
+                    <h3 style="font-size: 1.35rem; margin-bottom: 0.5rem; font-family: var(--font-display);">Global Evangeline</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem;">Passionately fulfilling the Great Commission through outreach, acts of love, and local initiatives.</p>
+                </div>
+                
+                <div class="card" style="padding: 2.5rem; border-radius: var(--radius-lg); text-align: center; border-color: rgba(0, 0, 0, 0.03);">
+                    <div style="width: 50px; height: 50px; border-radius: 50%; background: rgba(16, 185, 129, 0.08); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; color: #10b981;">
+                        <i data-lucide="users"></i>
+                    </div>
+                    <h3 style="font-size: 1.35rem; margin-bottom: 0.5rem; font-family: var(--font-display);">Kingdom Cells</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem;">Building strong community connections and personal discipleship in home groups.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="about-split">
+        <div class="container">
+            <div class="about-item" id="welcomeSection" data-reveal="slide-right">
                 <div class="about-content">
                     <h2 class="section-title">Welcome to Our Church</h2>
                     <p id="welcomeText">We are a vibrant community of believers committed to worshipping God, studying His Word, and serving our community with love and compassion.</p>
                 </div>
                 <div class="about-image">
-                    <img id="welcomeImage" src="" alt="Welcome" referrerPolicy="no-referrer">
+                    <img id="welcomeImage" src="" alt="Welcome" class="loading" referrerPolicy="no-referrer">
                 </div>
             </div>
             
-            <div class="about-item reverse" id="missionSection">
+            <div class="about-item reverse" id="missionSection" data-reveal="slide-left">
                 <div class="about-content">
                     <h2 class="section-title">Our Mission</h2>
                     <p id="missionText">To spread the Gospel of Jesus Christ and transform lives through biblical teaching and community service.</p>
                 </div>
                 <div class="about-image">
-                    <img id="missionImage" src="" alt="Mission" referrerPolicy="no-referrer">
+                    <img id="missionImage" src="" alt="Mission" class="loading" referrerPolicy="no-referrer">
                 </div>
             </div>
 
-            <div class="about-item" id="visionSection">
+            <div class="about-item" id="visionSection" data-reveal="slide-right">
                 <div class="about-content">
                     <h2 class="section-title">Our Vision</h2>
                     <p id="visionText">Building a community of believers who live out their faith with passion and purpose.</p>
                 </div>
                 <div class="about-image">
-                    <img id="visionImage" src="" alt="Vision" referrerPolicy="no-referrer">
+                    <img id="visionImage" src="" alt="Vision" class="loading" referrerPolicy="no-referrer">
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Daily Quotes Section -->
-    <section id="quotes" class="quotes-section" data-reveal>
+    <section id="quotes" class="quotes-section" data-reveal="scale-up">
         <div class="container">
             <h2 class="section-title" style="color: white; margin-bottom: 3rem;">Daily Quotes</h2>
             <div class="quote-container" id="quoteContainer">
@@ -102,13 +153,13 @@
     </section>
 
     <!-- Service Times Section -->
-    <section style="background: var(--bg-white);">
+    <section style="background: var(--bg-white);" data-reveal="fade-in">
         <div class="container">
             <div class="section-header">
                 <h2 class="section-title">Service Times</h2>
                 <p class="section-subtitle">Join us in person or online for our weekly services.</p>
             </div>
-            <div class="grid" id="servicesGrid">
+            <div class="grid" id="servicesGrid" data-reveal-stagger>
                 <div class="card service-card" id="sundayService1">
                     <h3 class="service-title">1st Sunday Service</h3>
                     <div class="service-time">6:30 AM</div>
@@ -138,6 +189,59 @@
                     <h3 class="service-title">Special Programs</h3>
                     <div class="service-time">Check Events</div>
                     <p class="service-description">Monthly special services and programs</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Weekly Activities & Life Groups Section -->
+    <section id="weekly-activities" style="background: var(--bg-light); border-top: 1px solid rgba(0, 0, 0, 0.05); border-bottom: 1px solid rgba(0, 0, 0, 0.05);" data-reveal="fade-in">
+        <div class="container">
+            <div class="section-header" style="text-align: center; margin-bottom: 3.5rem;">
+                <span class="teaser-label" style="font-size: 0.85rem; letter-spacing: 0.15em; font-weight: 800; color: var(--secondary-color); text-transform: uppercase;">WEEKLY FELLOWSHIP</span>
+                <h2 class="section-title" style="margin-top: 0.5rem; font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.2;">Engage In <span class="gradient-text font-bold">Community Life</span></h2>
+                <p class="section-subtitle" style="max-width: 600px; margin: 1rem auto 0; color: var(--text-muted);">Step out of the crowd and into community. Join any of our life groups, Bible classes, and empowering fellowships throughout the week.</p>
+            </div>
+
+            <div class="schedule-grid" data-reveal-stagger>
+                <div class="schedule-card">
+                    <span class="schedule-badge">Empowerment</span>
+                    <div class="schedule-time-meta">
+                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                        <span>Thursdays &bull; 5:00 PM</span>
+                    </div>
+                    <h3>Week of Spiritual Empowerment</h3>
+                    <p>Dedicate an interactive hour to intense praying, dynamic worship, and deep biblical study to charge your faith weekly.</p>
+                </div>
+
+                <div class="schedule-card">
+                    <span class="schedule-badge">Connect</span>
+                    <div class="schedule-time-meta">
+                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                        <span>Sundays &bull; 5:00 PM</span>
+                    </div>
+                    <h3>Home Fellowship Cells</h3>
+                    <p>Small, warm local cell groups meeting in your immediate neighborhood to build deep relationships and discuss spiritual growth.</p>
+                </div>
+
+                <div class="schedule-card">
+                    <span class="schedule-badge">Singles / Youth</span>
+                    <div class="schedule-time-meta">
+                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                        <span>Fridays &bull; 6:00 PM</span>
+                    </div>
+                    <h3>Youth & Singles Fellowship</h3>
+                    <p>Empowering young adults and singles through mentorship, active networking, social events, and biblically directed life discussions.</p>
+                </div>
+
+                <div class="schedule-card">
+                    <span class="schedule-badge">Foundations</span>
+                    <div class="schedule-time-meta">
+                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                        <span>Saturdays &bull; 8:30 AM</span>
+                    </div>
+                    <h3>Believers & Foundation School</h3>
+                    <p>Designed for newly born-again and new church members to establish solid, clear fundamental answers for their walk of faith.</p>
                 </div>
             </div>
         </div>
@@ -226,12 +330,16 @@
                 <p class="section-subtitle">Real stories of God's faithfulness in the lives of our members.</p>
             </div>
             
-            <div class="testimony-slider-wrapper" style="position: relative; max-width: 1300px; margin: 0 auto;">
+            <div class="testimony-slider-wrapper">
                 <div class="testimony-slider">
                     <div class="testimony-track" id="testimoniesGrid">
                         <!-- Testimonies will be loaded here as slides -->
                     </div>
                 </div>
+                
+                <!-- Testimony Progress Dots -->
+                <div class="testimony-dots" id="testimonyDots"></div>
+                
                 <div class="testimony-controls">
                     <button class="testimony-arrow prev" id="testimonyPrev"><i data-lucide="chevron-left"></i></button>
                     <button class="testimony-arrow next" id="testimonyNext"><i data-lucide="chevron-right"></i></button>
@@ -251,11 +359,11 @@
                         <form id="testimonyForm">
                             <div class="form-group">
                                 <label for="testimonyName">Full Name</label>
-                                <input type="text" id="testimonyName" placeholder="Enter your name" required>
+                                <input type="text" id="testimonyName" required>
                             </div>
                             <div class="form-group">
                                 <label for="testimonyMessage">Your Story</label>
-                                <textarea id="testimonyMessage" placeholder="Tell us what God has done..." rows="5" required></textarea>
+                                <textarea id="testimonyMessage" rows="5" required></textarea>
                             </div>
                             <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Testimony</button>
                         </form>
@@ -270,21 +378,69 @@
         </div>
     </section>
 
+    <!-- Ministries & Volunteer Teams Section -->
+    <section id="ministries-serve" style="background: var(--bg-light); border-top: 1px solid rgba(0, 0, 0, 0.05); border-bottom: 1px solid rgba(0, 0, 0, 0.05);" data-reveal="fade-in">
+        <div class="container">
+            <div class="section-header" style="text-align: center; margin-bottom: 3.5rem;">
+                <span class="teaser-label" style="font-size: 0.85rem; letter-spacing: 0.15em; font-weight: 800; color: var(--secondary-color); text-transform: uppercase;">GET INVOLVED</span>
+                <h2 class="section-title" style="margin-top: 0.5rem; font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.2;">Volunteer & <span class="gradient-text font-bold">Serve of Your Talents</span></h2>
+                <p class="section-subtitle" style="max-width: 600px; margin: 1rem auto 0; color: var(--text-muted);">Serving is one of the most fulfilling ways to grow spiritually. Discover our active volunteer departments and find where you fit best.</p>
+            </div>
+
+            <div class="ministries-grid" data-reveal-stagger>
+                <div class="ministry-card">
+                    <div class="ministry-icon-holder">
+                        <i data-lucide="music" style="width: 28px; height: 28px;"></i>
+                    </div>
+                    <h3>Praise & Worship Choir</h3>
+                    <p>Lead the fellowship with uplifting music, hymns, and spiritual choral performances that prepare hearts for God's word.</p>
+                </div>
+
+                <div class="ministry-card">
+                    <div class="ministry-icon-holder">
+                        <i data-lucide="video" style="width: 28px; height: 28px;"></i>
+                    </div>
+                    <h3>Media, Sound & Tech</h3>
+                    <p>Integrate audio, livestream broadcast feeds, camera angles, soundboards, lighting controls, and visual media production.</p>
+                </div>
+
+                <div class="ministry-card">
+                    <div class="ministry-icon-holder">
+                        <i data-lucide="shield" style="width: 28px; height: 28px;"></i>
+                    </div>
+                    <h3>Ushering, Protocol & Safety</h3>
+                    <p>Offer tidy, warm greetings at arrivals, guide seating in orderly structure, and maintain optimal security throughout church programs.</p>
+                </div>
+
+                <div class="ministry-card">
+                    <div class="ministry-icon-holder">
+                        <i data-lucide="heart" style="width: 28px; height: 28px;"></i>
+                    </div>
+                    <h3>Hospitality & Guest Services</h3>
+                    <p>Host guest ministers, address visitor queries, arrange clean refreshments, and coordinate welcoming support systems.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Offering Section -->
-    <section>
+    <section data-reveal="fade-in" style="background: var(--bg-white); border-top: 1px solid rgba(0, 0, 0, 0.05); border-bottom: 1px solid rgba(0, 0, 0, 0.05);">
         <div class="container">
             <div class="offering">
                 <h2>Offering & Donations</h2>
                 <p style="max-width: 600px; margin: 0 auto 3rem; opacity: 0.9;">Your generous giving helps us continue spreading the Gospel and serving our community both locally and globally.</p>
-                <div class="offering-grid" id="offeringAccounts">
+                <div class="offering-grid" id="offeringAccounts" data-reveal-stagger>
                     <!-- Bank accounts will be loaded here -->
                 </div>
             </div>
         </div>
     </section>
 
+    <!-- Dynamic Custom Sections -->
+    <div id="dynamic-sections"></div>
+
     <!-- Contact Section -->
-    <section id="contact" data-reveal>
+    <section id="contact" data-reveal="fade-in">
         <div class="container">
             <div class="contact-grid">
                 <div class="contact-info">
@@ -292,18 +448,27 @@
                     <p style="color: var(--text-muted); margin-bottom: 3rem;">Have questions or need prayer? Reach out to us and we'll be happy to connect with you.</p>
                     
                     <div class="contact-item">
+                        <div class="contact-icon">
+                            <i data-lucide="mail"></i>
+                        </div>
                         <div class="contact-text">
                             <h4>Email Us</h4>
-                            <p id="contactEmail">info@salvationministries-adageorge.org</p>
+                            <p id="contactEmail">adageorgestudio@gmail.com</p>
                         </div>
                     </div>
                     <div class="contact-item">
+                        <div class="contact-icon">
+                            <i data-lucide="phone"></i>
+                        </div>
                         <div class="contact-text">
                             <h4>Call Us</h4>
                             <p id="contactPhone">+234 123 456 7890</p>
                         </div>
                     </div>
                     <div class="contact-item">
+                        <div class="contact-icon">
+                            <i data-lucide="map-pin"></i>
+                        </div>
                         <div class="contact-text">
                             <h4>Visit Us</h4>
                             <p id="contactAddress">Ada George Road, Port Harcourt, Rivers State, Nigeria</p>
@@ -315,15 +480,15 @@
                     <form id="contactForm">
                         <div class="form-group">
                             <label for="contactName">Name</label>
-                            <input type="text" id="contactName" placeholder="Your Name" required>
+                            <input type="text" id="contactName" required>
                         </div>
                         <div class="form-group">
                             <label for="contactEmailInput">Email Address</label>
-                            <input type="email" id="contactEmailInput" placeholder="Your Email" required>
+                            <input type="email" id="contactEmailInput" required>
                         </div>
                         <div class="form-group">
                             <label for="contactMessage">Message</label>
-                            <textarea id="contactMessage" placeholder="How can we help you?" rows="5" required></textarea>
+                            <textarea id="contactMessage" rows="5" required></textarea>
                         </div>
                         <button type="submit" class="btn btn-primary" style="width: 100%;">Send Message</button>
                     </form>

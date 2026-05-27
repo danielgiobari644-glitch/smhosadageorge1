@@ -153,6 +153,38 @@
         "description": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "CustomSection": {
+      "title": "Custom Section",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "titleColor": { "type": "string" },
+        "titleGradient": { "type": "string" },
+        "useGradient": { "type": "boolean" },
+        "contentType": { "type": "string", "enum": ["cards", "text"] },
+        "textHTML": { "type": "string" },
+        "cards": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "icon": { "type": "string" },
+              "iconSize": { "type": "string" },
+              "iconColor": { "type": "string" },
+              "iconPosition": { "type": "string", "enum": ["top", "left"] }
+            }
+          }
+        },
+        "bgType": { "type": "string", "enum": ["color", "gradient", "image"] },
+        "bgColor": { "type": "string" },
+        "bgGradient": { "type": "string" },
+        "bgImage": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
@@ -165,6 +197,7 @@
     "/testimonies/{testimonyId}": { "schema": "Testimony", "description": "Member testimonies" },
     "/messages/{messageId}": { "schema": "Message", "description": "Contact form messages" },
     "/quotes/{quoteId}": { "schema": "Quote", "description": "Daily quotes" },
-    "/moments/{momentId}": { "schema": "Moment", "description": "Church moments (photos/videos)" }
+    "/moments/{momentId}": { "schema": "Moment", "description": "Church moments (photos/videos)" },
+    "/sections/{sectionId}": { "schema": "CustomSection", "description": "Admin dynamic custom sections" }
   }
 }

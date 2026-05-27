@@ -20,7 +20,8 @@ const Collections = {
   ADMIN: 'admin',
   MESSAGES: 'messages',
   QUOTES: 'quotes',
-  MOMENTS: 'moments'
+  MOMENTS: 'moments',
+  SECTIONS: 'sections'
 };
 
 // Initialize Firebase
@@ -53,7 +54,7 @@ try {
 }
 
 // Global attempt to ensure network is active
-db.enableNetwork().catch(err => console.warn("db.enableNetwork error:", err));
+db.enableNetwork().catch(err => console.warn("db.enableNetwork error:", err ? (err.message || String(err)) : "Unknown Error"));
 
 // Firestore Operation Types
 const OperationType = {
@@ -67,15 +68,48 @@ const OperationType = {
 
 // Safe stringify helper to avoid circularity - defined at top level for reuse
 const safeStringify = (obj) => {
-  const cache = new Set();
-  try {
-    return JSON.stringify(obj, (key, value) => {
-      if (typeof value === 'object' && value !== null) {
-        if (cache.has(value)) return '[Circular]';
-        cache.add(value);
+  const seen = new WeakSet();
+  
+  function clean(val) {
+    if (val === null || val === undefined) return val;
+    if (typeof val !== 'object') return val;
+    
+    // Check if we've already seen this object
+    if (seen.has(val)) {
+      return '[Circular]';
+    }
+    
+    // Don't traverse deeply into Firestore database reference fields or native DOM objects
+    const constructorName = val.constructor ? val.constructor.name : '';
+    if (constructorName === 'Hn' || constructorName === 'le' || constructorName.includes('Firestore') || constructorName.startsWith('t') || constructorName.startsWith('e')) {
+      return `[FirestoreObject: ${constructorName}]`;
+    }
+    if (val instanceof HTMLElement || val instanceof Event || val instanceof Window) {
+      return '[BrowserObject]';
+    }
+    
+    seen.add(val);
+    
+    if (Array.isArray(val)) {
+      return val.map(clean);
+    }
+    
+    const copy = {};
+    for (const key in val) {
+      if (Object.prototype.hasOwnProperty.call(val, key)) {
+        try {
+          copy[key] = clean(val[key]);
+        } catch (e) {
+          copy[key] = '[Access Error]';
+        }
       }
-      return value;
-    });
+    }
+    return copy;
+  }
+  
+  try {
+    const cleanedObj = clean(obj);
+    return JSON.stringify(cleanedObj);
   } catch (err) {
     return '{"error":"Serialization failed"}';
   }
@@ -158,17 +192,30 @@ async function safeList(query, operationType = OperationType.LIST) {
 window.addEventListener('error', function(event) {
     if (event.message === 'Script error.') {
         console.warn('Masked "Script error." detected.');
-    } else {
-        const msg = event.message || (event.error && event.error.message) || 'Unknown global error';
-        console.error('Captured Global Error:', String(msg));
+        return;
     }
-});
+    
+    // Prevent default platform/browser circular object logging
+    try {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    } catch (e) {}
+
+    const msg = event.message || (event.error && event.error.message) || 'Unknown global error';
+    console.error('Captured Global Error:', String(msg));
+}, true); // Use capture phase to intercept before parent/harness listeners
 
 window.addEventListener('unhandledrejection', function(event) {
+    // Prevent default platform/browser circular object logging
+    try {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    } catch (e) {}
+
     const reason = event.reason;
     const msg = reason?.message || String(reason || 'Unknown rejection');
     console.error('Captured Unhandled Rejection:', String(msg));
-});
+}, true); // Use capture phase to intercept before parent/harness listeners
 
 // Test connection to Firestore
 async function testConnection() {
@@ -312,7 +359,7 @@ async function initializeDefaultData() {
 
       // Initialize contact info
       await db.collection(Collections.CONTENT).doc('contact').set({
-        email: 'info@salvationministries-adageorge.org',
+        email: 'adageorgestudio@gmail.com',
         phone: '+234 123 456 7890',
         address: 'Ada George Road, Port Harcourt, Rivers State, Nigeria',
         offeringAccounts: [

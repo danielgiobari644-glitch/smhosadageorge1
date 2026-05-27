@@ -6,9 +6,13 @@
     <script>
       window.onerror = function(msg, url, line, col, error) {
         console.error('GLOBAL ERROR:', msg || 'Unknown error');
-        return false;
+        return true; // Suppress default browser/iframe reporting
       };
       window.onunhandledrejection = function(event) {
+        try {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        } catch (e) {}
         const reason = event.reason;
         console.error('UNHANDLED REJECTION:', reason?.message || String(reason || 'Unknown rejection'));
       };
@@ -55,17 +59,17 @@
     </section>
 
     <!-- Sermons List -->
-    <section class="sermons-page-content">
+    <section class="sermons-page-content" data-reveal="fade-in">
         <div class="container">
             <div id="sermonsSearch" class="search-box">
-               <input type="text" id="sermonSearchInput" placeholder="Search sermons by title or topic...">
+               <input type="text" id="sermonSearchInput">
             </div>
 
             <div class="empty-state" id="sermonsEmpty">
                 <p>No sermons available yet. Check back soon!</p>
             </div>
             
-            <div class="grid" id="sermonsGrid">
+            <div class="grid" id="sermonsGrid" data-reveal-stagger>
                 <!-- Sermons will be loaded here -->
             </div>
         </div>
