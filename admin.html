@@ -67,12 +67,24 @@
           });
         };
 
+        const isShareModalCaller = () => {
+          try {
+            const stack = new Error().stack || '';
+            return stack.includes('share-modal') || stack.includes('share-btn') || stack.includes('platform');
+          } catch (e) {
+            return false;
+          }
+        };
+
         const originalGetElementById = document.getElementById;
         document.getElementById = function(id) {
           const el = originalGetElementById.call(document, id);
-          if (!el && id && typeof id === 'string' && id.toLowerCase().includes('share')) {
-            console.info(`[Defensive Patch] Mocking missing element with ID: "${id}"`);
-            return createDummyElement(id);
+          if (!el) {
+            const isShare = id && typeof id === 'string' && id.toLowerCase().includes('share');
+            if (isShare || isShareModalCaller()) {
+              console.info(`[Defensive Patch] Mocking missing element with ID: "${id}"`);
+              return createDummyElement(id);
+            }
           }
           return el;
         };
@@ -81,9 +93,12 @@
         document.querySelector = function(selector) {
           try {
             const el = originalQuerySelector.call(document, selector);
-            if (!el && selector && typeof selector === 'string' && selector.toLowerCase().includes('share')) {
-              console.info(`[Defensive Patch] Mocking missing element with selector: "${selector}"`);
-              return createDummyElement(selector);
+            if (!el) {
+              const isShare = selector && typeof selector === 'string' && selector.toLowerCase().includes('share');
+              if (isShare || isShareModalCaller()) {
+                console.info(`[Defensive Patch] Mocking missing element with selector: "${selector}"`);
+                return createDummyElement(selector);
+              }
             }
             return el;
           } catch (e) {
