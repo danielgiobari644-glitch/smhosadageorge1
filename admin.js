@@ -1085,7 +1085,7 @@ function setupForms() {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             
-            await db.collection(Collections.SETTINGS).doc('theme').update(updates);
+            await db.collection(Collections.SETTINGS).doc('theme').set(updates, { merge: true });
             alert('Design system updated successfully!');
             // Apply immediately to current view
             if (updates.mode === 'dark') document.body.classList.add('dark-mode');
@@ -1141,7 +1141,7 @@ function setupForms() {
             if (sermonBackground) updates.sermonBackground = sermonBackground;
             if (testimonyBackground) updates.testimonyBackground = testimonyBackground;
             
-            await db.collection(Collections.SETTINGS).doc('theme').update(updates);
+            await db.collection(Collections.SETTINGS).doc('theme').set(updates, { merge: true });
             
             // Re-apply theme to dashboard immediately
             loadThemeSettings();
@@ -1173,7 +1173,7 @@ function setupForms() {
         }));
 
         try {
-            await db.collection(Collections.SETTINGS).doc('theme').update({
+            await db.collection(Collections.SETTINGS).doc('theme').set({
                 heroImage: heroImages.length > 0 ? heroImages[0].url : '',
                 heroText: heroTitle,
                 heroSubtext: heroSubtext,
@@ -1184,7 +1184,7 @@ function setupForms() {
                 // Keep these for backward compatibility if needed, but primary focus is heroImage
                 heroMode: heroMode,
                 heroImages: heroImages
-            });
+            }, { merge: true });
             alert('Hero settings saved successfully!');
         } catch (error) {
             console.error('Error saving hero:', error.message || String(error));
@@ -1200,7 +1200,7 @@ function setupForms() {
         e.preventDefault();
         
         try {
-            await db.collection(Collections.CONTENT).doc('about').update({
+            await db.collection(Collections.CONTENT).doc('about').set({
                 mission: document.getElementById('missionInput').value,
                 missionImage: document.getElementById('missionImageUrl').value,
                 vision: document.getElementById('visionInput').value,
@@ -1211,7 +1211,7 @@ function setupForms() {
                 title: document.getElementById('aboutTitleInput')?.value || '',
                 buttonText: document.getElementById('aboutButtonTextInput')?.value || '',
                 buttonLink: document.getElementById('aboutButtonLinkInput')?.value || ''
-            });
+            }, { merge: true });
             alert('Content saved successfully!');
         } catch (error) {
             console.error('Error saving content:', error.message || String(error));
@@ -1335,7 +1335,7 @@ function setupForms() {
                 description: document.getElementById('specialDescription').value
             };
 
-            await db.collection(Collections.SERVICES).doc('schedule').update(updates);
+            await db.collection(Collections.SERVICES).doc('schedule').set(updates, { merge: true });
             alert('Service times saved successfully!');
         } catch (error) {
             console.error('Error saving services:', error.message || String(error));
@@ -1432,12 +1432,12 @@ function setupForms() {
         }));
 
         try {
-            await db.collection(Collections.CONTENT).doc('contact').update({
+            await db.collection(Collections.CONTENT).doc('contact').set({
                 email: document.getElementById('contactEmailAdmin').value,
                 phone: document.getElementById('contactPhoneAdmin').value,
                 address: document.getElementById('contactAddressAdmin').value,
                 offeringAccounts: offeringAccounts
-            });
+            }, { merge: true });
             alert('Contact information saved successfully!');
         } catch (error) {
             console.error('Error saving contact info:', error.message || String(error));

@@ -1354,6 +1354,27 @@ function setupRealtimeListeners() {
             }
         }, (error) => handleFirestoreError(error, OperationType.GET, Collections.SETTINGS));
     
+    db.collection(Collections.CONTENT).doc('about')
+        .onSnapshot((doc) => {
+            if (doc.exists) {
+                loadAboutContent();
+            }
+        }, (error) => handleFirestoreError(error, OperationType.GET, Collections.CONTENT));
+
+    db.collection(Collections.CONTENT).doc('contact')
+        .onSnapshot((doc) => {
+            if (doc.exists) {
+                loadContactInfo();
+            }
+        }, (error) => handleFirestoreError(error, OperationType.GET, Collections.CONTENT));
+
+    db.collection(Collections.SERVICES).doc('schedule')
+        .onSnapshot((doc) => {
+            if (doc.exists) {
+                loadServiceTimes();
+            }
+        }, (error) => handleFirestoreError(error, OperationType.GET, Collections.SERVICES));
+    
     db.collection(Collections.SERMONS)
         .onSnapshot(() => {
             loadSermons();
