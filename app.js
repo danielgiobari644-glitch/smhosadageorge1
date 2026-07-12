@@ -195,15 +195,110 @@ async function loadThemeSettings() {
             
             // Update section backgrounds
             const sermonSections = document.querySelectorAll('.sermon-teaser, #sermonHeader');
-            if (sermonSections.length > 0 && theme.sermonBackground) {
+            if (sermonSections.length > 0) {
                 sermonSections.forEach(sec => {
-                    sec.style.cssText += `; background-image: url('${theme.sermonBackground}') !important;`;
+                    const bgType = theme.sermonBgType || 'image';
+                    if (bgType === 'color' && theme.sermonBgColor) {
+                        sec.style.cssText += `; background: ${theme.sermonBgColor} !important; background-image: none !important;`;
+                    } else if (bgType === 'gradient' && theme.sermonBgGradient) {
+                        sec.style.cssText += `; background: ${theme.sermonBgGradient} !important; background-image: none !important;`;
+                    } else {
+                        const bgUrl = theme.sermonBackground || theme.sermonBgImage || 'https://images.unsplash.com/photo-1438032005730-c779502df39b?w=1600&q=80';
+                        sec.style.cssText += `; background-image: url('${bgUrl}') !important; background-repeat: no-repeat !important; background-size: cover !important; background-position: center !important;`;
+                    }
                 });
             }
 
             const testimoniesSection = document.querySelector('.testimonies-section');
             if (testimoniesSection && theme.testimonyBackground) {
                 testimoniesSection.style.cssText += `; background-image: url('${theme.testimonyBackground}') !important;`;
+            }
+
+            // Update Join Family section styling and links
+            const joinFamilySection = document.getElementById('join-family-section');
+            if (joinFamilySection) {
+                const bgType = theme.joinFamilyBgType || 'color';
+                if (bgType === 'color' && theme.joinFamilyBgColor) {
+                    joinFamilySection.style.cssText += `; background: ${theme.joinFamilyBgColor} !important; background-image: none !important;`;
+                } else if (bgType === 'gradient' && theme.joinFamilyBgGradient) {
+                    joinFamilySection.style.cssText += `; background: ${theme.joinFamilyBgGradient} !important; background-image: none !important;`;
+                } else if (bgType === 'image' && theme.joinFamilyBgImage) {
+                    joinFamilySection.style.cssText += `; background-image: url('${theme.joinFamilyBgImage}') !important; background-repeat: no-repeat !important; background-size: cover !important; background-position: center !important; background-color: transparent !important;`;
+                } else {
+                    // Default fallback
+                    joinFamilySection.style.cssText += `; background: #0b1329 !important; background-image: none !important;`;
+                }
+            }
+
+            const joinFellowshipBtn = document.getElementById('joinFellowshipBtn');
+            const joinNextStepsBtn = document.getElementById('joinNextStepsBtn');
+            const joinServeBtn = document.getElementById('joinServeBtn');
+
+            if (joinFellowshipBtn) {
+                joinFellowshipBtn.href = theme.joinFamilyFellowshipLink || '#contact';
+            }
+            if (joinNextStepsBtn) {
+                joinNextStepsBtn.href = theme.joinFamilyNextStepsLink || '#contact';
+            }
+            if (joinServeBtn) {
+                joinServeBtn.href = theme.joinFamilyServeLink || '#ministries-serve';
+            }
+
+            // Update social media links
+            const socials = [
+                { id: 'facebook', url: theme.socialFacebook, icon: 'facebook' },
+                { id: 'instagram', url: theme.socialInstagram, icon: 'instagram' },
+                { id: 'twitter', url: theme.socialTwitter, icon: 'twitter' },
+                { id: 'youtube', url: theme.socialYoutube, icon: 'youtube' }
+            ].filter(s => s.url);
+
+            const renderSocials = (container) => {
+                if (!container) return;
+                container.innerHTML = '';
+                if (socials.length === 0) {
+                    container.style.display = 'none';
+                    return;
+                }
+                container.style.display = 'flex';
+                
+                socials.forEach(s => {
+                    const a = document.createElement('a');
+                    a.href = s.url;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    a.className = 'nav-social-link';
+                    a.style.cssText = 'color: var(--text-muted); transition: var(--transition); display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.03);';
+                    a.innerHTML = `<i data-lucide="${s.icon}" style="width: 18px; height: 18px;"></i>`;
+                    
+                    // Add hover interactions
+                    a.addEventListener('mouseenter', () => {
+                        a.style.color = 'var(--primary-color)';
+                        a.style.background = 'rgba(var(--primary-rgb), 0.08)';
+                        a.style.transform = 'translateY(-2px)';
+                    });
+                    a.addEventListener('mouseleave', () => {
+                        a.style.color = 'var(--text-muted)';
+                        a.style.background = 'rgba(0,0,0,0.03)';
+                        a.style.transform = 'none';
+                    });
+                    
+                    container.appendChild(a);
+                });
+            };
+
+            const desktopContainer = document.getElementById('navSocialsDesktop');
+            const mobileContainer = document.getElementById('navSocialsMobile');
+            const mobileItem = document.getElementById('navSocialsMobileItem');
+
+            if (desktopContainer) renderSocials(desktopContainer);
+            if (mobileContainer) renderSocials(mobileContainer);
+
+            if (mobileItem) {
+                if (socials.length > 0) {
+                    mobileItem.style.display = 'flex';
+                } else {
+                    mobileItem.style.display = 'none';
+                }
             }
             
             // Update hero buttons
@@ -303,7 +398,7 @@ function scanAndObserve() {
 
     // Enable dynamic child staggering automatically for stagger groups
     document.querySelectorAll('[data-reveal-stagger]').forEach(parent => {
-        const targets = parent.querySelectorAll('.card, .about-item, .offering-card, .service-card, .sermon-card, .event-poster-item, .moment-slide, .testimony-slide, .video-card');
+        const targets = parent.querySelectorAll('.card, .about-item, .offering-card, .service-card, .sermon-card, .event-poster-item, .moment-slide, .testimony-slide, .video-card, .pillar-card');
         targets.forEach((child, index) => {
             if (!child.hasAttribute('data-reveal')) {
                 child.setAttribute('data-reveal', 'fade-up');
@@ -313,7 +408,7 @@ function scanAndObserve() {
     });
 
     // Register all elements with the IntersectionObserver
-    document.querySelectorAll('[data-reveal]').forEach(el => {
+    document.querySelectorAll('[data-reveal], [data-reveal-stagger]').forEach(el => {
         if (!el.classList.contains('revealed')) {
             observer.observe(el);
         }
@@ -1056,9 +1151,9 @@ async function loadOfferingDetails() {
             if (!container) return;
             
             if (contact.offeringAccounts && contact.offeringAccounts.length > 0) {
-                container.innerHTML = contact.offeringAccounts.map(account => `
+                container.innerHTML = contact.offeringAccounts.map((account, index) => `
                     <div class="offering-card">
-                        ${account.title ? `<h3>${account.title}</h3>` : ''}
+                        <h3>${account.title || 'Offering Account'}</h3>
                         <div class="offering-item">
                             <h4>Bank</h4>
                             <p>${account.bank}</p>
@@ -1069,7 +1164,12 @@ async function loadOfferingDetails() {
                         </div>
                         <div class="offering-item">
                             <h4>Account Number</h4>
-                            <p>${account.accountNumber}</p>
+                            <div class="account-number-wrapper">
+                                <span class="account-num">${account.accountNumber}</span>
+                                <button class="btn-copy" onclick="navigator.clipboard.writeText('${account.accountNumber}'); this.classList.add('copied'); this.innerHTML='<i data-lucide=check style=width:14px;height:14px;></i> Copied!'; setTimeout(()=>{this.classList.remove('copied'); this.innerHTML='<i data-lucide=copy style=width:14px;height:14px;></i> Copy'}, 2000); if(window.lucide) lucide.createIcons();">
+                                    <i data-lucide="copy" style="width:14px; height:14px;"></i> Copy
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `).join('');
@@ -1077,6 +1177,7 @@ async function loadOfferingDetails() {
                 // Fallback for old data structure
                 container.innerHTML = `
                     <div class="offering-card">
+                        <h3>Offering Account</h3>
                         <div class="offering-item">
                             <h4>Bank</h4>
                             <p>${contact.offeringAccount.bank}</p>
@@ -1087,10 +1188,18 @@ async function loadOfferingDetails() {
                         </div>
                         <div class="offering-item">
                             <h4>Account Number</h4>
-                            <p>${contact.offeringAccount.accountNumber}</p>
+                            <div class="account-number-wrapper">
+                                <span class="account-num">${contact.offeringAccount.accountNumber}</span>
+                                <button class="btn-copy" onclick="navigator.clipboard.writeText('${contact.offeringAccount.accountNumber}'); this.classList.add('copied'); this.innerHTML='<i data-lucide=check style=width:14px;height:14px;></i> Copied!'; setTimeout(()=>{this.classList.remove('copied'); this.innerHTML='<i data-lucide=copy style=width:14px;height:14px;></i> Copy'}, 2000); if(window.lucide) lucide.createIcons();">
+                                    <i data-lucide="copy" style="width:14px; height:14px;"></i> Copy
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;
+            }
+            if (window.lucide) {
+                lucide.createIcons();
             }
         }
     } catch (error) {

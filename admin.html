@@ -519,17 +519,109 @@
                                 <input type="url" id="livestreamUrl">
                             </div>
                         </div>
+                        <!-- Sermon Background Configuration -->
+                        <h3 style="margin-top: 3rem; margin-bottom: 1.5rem; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 0.5rem; color: var(--text-dark);">Sermon Section Background</h3>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Sermon Section Background</label>
-                                <input type="url" id="sermonBackgroundInput">
+                                <label>Sermon Background Type</label>
+                                <select id="sermonBgType">
+                                    <option value="image">Image URL</option>
+                                    <option value="color">Solid Color</option>
+                                    <option value="gradient">Gradient CSS</option>
+                                </select>
                             </div>
                             <div class="form-group">
-                                <label>Testimony Section Background</label>
-                                <input type="url" id="testimonyBackgroundInput">
+                                <label>Sermon Background Image URL</label>
+                                <input type="url" id="sermonBackgroundInput" placeholder="e.g. https://images.unsplash.com/...">
                             </div>
                         </div>
-                        <button type="submit" class="btn-admin">Update Theme</button>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Sermon Background Color</label>
+                                <input type="color" id="sermonBgColor" value="#0f172a">
+                            </div>
+                            <div class="form-group">
+                                <label>Sermon Background Gradient CSS</label>
+                                <input type="text" id="sermonBgGradient" placeholder="e.g. linear-gradient(135deg, #0f172a, #1e293b)" value="linear-gradient(135deg, #0f172a, #1e293b)">
+                            </div>
+                        </div>
+
+                        <!-- Testimony Background Configuration -->
+                        <h3 style="margin-top: 3rem; margin-bottom: 1.5rem; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 0.5rem; color: var(--text-dark);">Testimonies Section</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Testimony Section Background Image URL</label>
+                                <input type="url" id="testimonyBackgroundInput" placeholder="e.g. https://images.unsplash.com/...">
+                            </div>
+                        </div>
+
+                        <!-- Social Media Links (Navbar Admin Config) -->
+                        <h3 style="margin-top: 3rem; margin-bottom: 1.5rem; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 0.5rem; color: var(--text-dark);">Social Media Links (Navbar & Footer)</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Facebook Link</label>
+                                <input type="url" id="socialFacebook" placeholder="https://facebook.com/yourpage">
+                            </div>
+                            <div class="form-group">
+                                <label>Instagram Link</label>
+                                <input type="url" id="socialInstagram" placeholder="https://instagram.com/yourprofile">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Twitter / X Link</label>
+                                <input type="url" id="socialTwitter" placeholder="https://twitter.com/yourhandle">
+                            </div>
+                            <div class="form-group">
+                                <label>YouTube Link</label>
+                                <input type="url" id="socialYoutube" placeholder="https://youtube.com/@yourchannel">
+                            </div>
+                        </div>
+
+                        <!-- Ready to Join the Family Section Configuration -->
+                        <h3 style="margin-top: 3rem; margin-bottom: 1.5rem; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 0.5rem; color: var(--text-dark);">"Ready to Join the Family" Section Settings</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Background Style Type</label>
+                                <select id="joinFamilyBgType">
+                                    <option value="color">Solid Color</option>
+                                    <option value="gradient">Gradient CSS</option>
+                                    <option value="image">Image URL</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Background Image URL</label>
+                                <input type="url" id="joinFamilyBgImage" placeholder="e.g. https://images.unsplash.com/...">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Background Solid Color</label>
+                                <input type="color" id="joinFamilyBgColor" value="#0b1329">
+                            </div>
+                            <div class="form-group">
+                                <label>Background Gradient CSS</label>
+                                <input type="text" id="joinFamilyBgGradient" placeholder="e.g. linear-gradient(135deg, #090d16, #111827)" value="linear-gradient(135deg, #090d16, #111827)">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Home Fellowship Link (Required)</label>
+                                <input type="url" id="joinFamilyFellowshipLink" placeholder="e.g. #contact" value="#contact">
+                            </div>
+                            <div class="form-group">
+                                <label>Next Steps / Foundation Class Link</label>
+                                <input type="url" id="joinFamilyNextStepsLink" placeholder="e.g. #contact" value="#contact">
+                            </div>
+                            <div class="form-group">
+                                <label>Serve / Volunteer Link</label>
+                                <input type="url" id="joinFamilyServeLink" placeholder="e.g. #ministries-serve" value="#ministries-serve">
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 2.5rem;">
+                            <button type="submit" class="btn-admin">Save Custom Theme Configs</button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -591,11 +683,11 @@
                             <input type="url" id="visionImageUrl">
                         </div>
                         <div class="form-group">
-                            <label>Welcome Message</label>
+                            <label>The Mandate / Welcome Message</label>
                             <textarea id="welcomeInput" rows="4"></textarea>
                         </div>
                         <div class="form-group">
-                            <label>Welcome Image URL</label>
+                            <label>Portrait Image URL (The Mandate Section)</label>
                             <input type="url" id="welcomeImageUrl">
                         </div>
                         <button type="submit" class="btn-admin">Save Content</button>

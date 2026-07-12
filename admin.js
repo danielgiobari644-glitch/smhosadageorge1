@@ -316,6 +316,37 @@ async function loadThemeData() {
             if (livestreamUrl) livestreamUrl.value = theme.livestreamUrl || '';
             if (sermonBackgroundInput) sermonBackgroundInput.value = theme.sermonBackground || '';
             if (testimonyBackgroundInput) testimonyBackgroundInput.value = theme.testimonyBackground || '';
+
+            // New fields
+            const sermonBgType = document.getElementById('sermonBgType');
+            const sermonBgColor = document.getElementById('sermonBgColor');
+            const sermonBgGradient = document.getElementById('sermonBgGradient');
+            const socialFacebook = document.getElementById('socialFacebook');
+            const socialInstagram = document.getElementById('socialInstagram');
+            const socialTwitter = document.getElementById('socialTwitter');
+            const socialYoutube = document.getElementById('socialYoutube');
+            const joinFamilyBgType = document.getElementById('joinFamilyBgType');
+            const joinFamilyBgImage = document.getElementById('joinFamilyBgImage');
+            const joinFamilyBgColor = document.getElementById('joinFamilyBgColor');
+            const joinFamilyBgGradient = document.getElementById('joinFamilyBgGradient');
+            const joinFamilyFellowshipLink = document.getElementById('joinFamilyFellowshipLink');
+            const joinFamilyNextStepsLink = document.getElementById('joinFamilyNextStepsLink');
+            const joinFamilyServeLink = document.getElementById('joinFamilyServeLink');
+
+            if (sermonBgType) sermonBgType.value = theme.sermonBgType || 'image';
+            if (sermonBgColor) sermonBgColor.value = theme.sermonBgColor || '#0f172a';
+            if (sermonBgGradient) sermonBgGradient.value = theme.sermonBgGradient || 'linear-gradient(135deg, #0f172a, #1e293b)';
+            if (socialFacebook) socialFacebook.value = theme.socialFacebook || '';
+            if (socialInstagram) socialInstagram.value = theme.socialInstagram || '';
+            if (socialTwitter) socialTwitter.value = theme.socialTwitter || '';
+            if (socialYoutube) socialYoutube.value = theme.socialYoutube || '';
+            if (joinFamilyBgType) joinFamilyBgType.value = theme.joinFamilyBgType || 'color';
+            if (joinFamilyBgImage) joinFamilyBgImage.value = theme.joinFamilyBgImage || '';
+            if (joinFamilyBgColor) joinFamilyBgColor.value = theme.joinFamilyBgColor || '#0b1329';
+            if (joinFamilyBgGradient) joinFamilyBgGradient.value = theme.joinFamilyBgGradient || 'linear-gradient(135deg, #090d16, #111827)';
+            if (joinFamilyFellowshipLink) joinFamilyFellowshipLink.value = theme.joinFamilyFellowshipLink || '#contact';
+            if (joinFamilyNextStepsLink) joinFamilyNextStepsLink.value = theme.joinFamilyNextStepsLink || '#contact';
+            if (joinFamilyServeLink) joinFamilyServeLink.value = theme.joinFamilyServeLink || '#ministries-serve';
         }
     } catch (error) {
         console.error('Error loading theme data:', error.message || String(error));
@@ -1023,11 +1054,29 @@ function setupForms() {
         
         try {
             const updates = {
-                mode: document.getElementById('themeMode').value,
                 primaryColor: document.getElementById('primaryColor').value,
                 secondaryColor: document.getElementById('secondaryColor').value,
-                accentColor: document.getElementById('accentColor').value
+                accentColor: document.getElementById('accentColor').value,
+                sermonBgType: document.getElementById('sermonBgType').value,
+                sermonBgColor: document.getElementById('sermonBgColor').value,
+                sermonBgGradient: document.getElementById('sermonBgGradient').value.trim(),
+                socialFacebook: document.getElementById('socialFacebook').value.trim(),
+                socialInstagram: document.getElementById('socialInstagram').value.trim(),
+                socialTwitter: document.getElementById('socialTwitter').value.trim(),
+                socialYoutube: document.getElementById('socialYoutube').value.trim(),
+                joinFamilyBgType: document.getElementById('joinFamilyBgType').value,
+                joinFamilyBgImage: document.getElementById('joinFamilyBgImage').value.trim(),
+                joinFamilyBgColor: document.getElementById('joinFamilyBgColor').value,
+                joinFamilyBgGradient: document.getElementById('joinFamilyBgGradient').value.trim(),
+                joinFamilyFellowshipLink: document.getElementById('joinFamilyFellowshipLink').value.trim(),
+                joinFamilyNextStepsLink: document.getElementById('joinFamilyNextStepsLink').value.trim(),
+                joinFamilyServeLink: document.getElementById('joinFamilyServeLink').value.trim()
             };
+            
+            const themeModeEl = document.getElementById('themeMode');
+            if (themeModeEl) {
+                updates.mode = themeModeEl.value;
+            }
             
             const logoUrl = document.getElementById('logoUrl').value.trim();
             const faviconUrl = document.getElementById('faviconUrl').value.trim();
