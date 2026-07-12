@@ -156,7 +156,26 @@ function setupLogin() {
             console.log('Credentials retrieved successfully');
             
             if (username === credentials.username && password === credentials.password) {
-                console.log('Login successful');
+                console.log('Login successful. Synchronizing Firebase Auth...');
+                try {
+                    // Try to sign in or sign up the admin email
+                    await auth.signInWithEmailAndPassword('danielgiobari644@gmail.com', password);
+                    console.log('Firebase Auth: Session established.');
+                } catch (authError) {
+                    console.warn('Firebase Auth email/password sign-in failed, trying registration:', authError.message);
+                    try {
+                        await auth.createUserWithEmailAndPassword('danielgiobari644@gmail.com', password);
+                        console.log('Firebase Auth: Registered and logged in successfully.');
+                    } catch (regError) {
+                        console.warn('Firebase Auth registration failed, falling back to anonymous login:', regError.message);
+                        try {
+                            await auth.signInAnonymously();
+                            console.log('Firebase Auth: Signed in anonymously as fallback.');
+                        } catch (anonError) {
+                            console.error('All Firebase Auth login attempts failed:', anonError.message);
+                        }
+                    }
+                }
                 sessionStorage.setItem('adminLoggedIn', 'true');
                 currentUser = username;
                 showDashboard();

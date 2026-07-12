@@ -434,6 +434,565 @@ function getCollectionId(query) {
     return null;
 }
 
+// ============================================================================
+// Robust Offline Wrapper and Fallback Mechanism
+// ============================================================================
+let isFirestoreOffline = false;
+
+// Initialize local storage fallback if not already set
+try {
+    if (!localStorage.getItem('adageorge_fallback_docs')) {
+        localStorage.setItem('adageorge_fallback_docs', JSON.stringify(FALLBACK_DATA));
+    }
+    if (!localStorage.getItem('adageorge_fallback_lists')) {
+        localStorage.setItem('adageorge_fallback_lists', JSON.stringify(FALLBACK_LISTS));
+    }
+} catch (e) {
+    console.warn("localStorage not available:", e.message);
+}
+
+async function withTimeout(promise, ms = 1500) {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            reject(new Error("Timeout"));
+        }, ms);
+    });
+    try {
+        const result = await Promise.race([promise, timeoutPromise]);
+        clearTimeout(timeoutId);
+        return result;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        throw err;
+    }
+}
+
+function getLocalDoc(path) {
+    try {
+        const docs = JSON.parse(localStorage.getItem('adageorge_fallback_docs') || '{}');
+        return docs[path] !== undefined ? docs[path] : FALLBACK_DATA[path];
+    } catch (e) {
+        return FALLBACK_DATA[path];
+    }
+}
+
+function setLocalDoc(path, data) {
+    try {
+        const docs = JSON.parse(localStorage.getItem('adageorge_fallback_docs') || '{}');
+        docs[path] = data;
+        localStorage.setItem('adageorge_fallback_docs', JSON.stringify(docs));
+    } catch (e) {}
+}
+
+function getLocalList(collectionName) {
+    try {
+        const lists = JSON.parse(localStorage.getItem('adageorge_fallback_lists') || '{}');
+        return lists[collectionName] !== undefined ? lists[collectionName] : (FALLBACK_LISTS[collectionName] || []);
+    } catch (e) {
+        return FALLBACK_LISTS[collectionName] || [];
+    }
+}
+
+function setLocalList(collectionName, list) {
+    try {
+        const lists = JSON.parse(localStorage.getItem('adageorge_fallback_lists') || '{}');
+        lists[collectionName] = list;
+        localStorage.setItem('adageorge_fallback_lists', JSON.stringify(lists));
+    } catch (e) {}
+}
+
+function updateItemInList(collectionName, docId, data, isMerge = false) {
+    if (!collectionName) return;
+    const list = getLocalList(collectionName);
+    const index = list.findIndex(item => item.id === docId);
+    if (index !== -1) {
+        const existingItem = list[index];
+        const updatedItem = isMerge ? { ...existingItem, ...data } : { id: docId, ...data };
+        list[index] = updatedItem;
+        setLocalList(collectionName, list);
+    } else {
+        const listCollections = ['quotes', 'moments', 'testimonies', 'events', 'sermons', 'sections', 'messages'];
+        if (listCollections.includes(collectionName)) {
+            const newItem = { id: docId, ...data };
+            list.unshift(newItem); // Put new items at the beginning
+            setLocalList(collectionName, list);
+        }
+    }
+}
+
+function normalizeOnSnapshotArgs(arg1, arg2, arg3) {
+    let onNext;
+    let onError;
+    if (typeof arg1 === 'function') {
+        onNext = arg1;
+        onError = arg2;
+    } else if (arg1 && typeof arg1 === 'object') {
+        if (typeof arg1.next === 'function') {
+            onNext = arg1.next;
+            onError = arg1.error;
+        } else if (typeof arg2 === 'function') {
+            onNext = arg2;
+            onError = arg3;
+        }
+    }
+    return {
+        onNext: onNext || (() => {}),
+        onError: onError || ((err) => console.warn("onSnapshot error:", err))
+    };
+}
+
+function wrapDocRef(originalDocRef, collectionName, docId) {
+    const path = originalDocRef ? originalDocRef.path : `${collectionName}/${docId}`;
+    return {
+        id: docId,
+        path: path,
+        get parent() { return originalDocRef ? originalDocRef.parent : null; },
+        
+        collection: (subName) => {
+            const originalSub = originalDocRef ? originalDocRef.collection(subName) : null;
+            return wrapCollectionRef(originalSub, `${path}/${subName}`);
+        },
+
+        onSnapshot: function(arg1, arg2, arg3) {
+            const { onNext, onError } = normalizeOnSnapshotArgs(arg1, arg2, arg3);
+            const self = this;
+            let unsubscribed = false;
+            let originalUnsubscribe = null;
+
+            const triggerImmediate = async () => {
+                if (unsubscribed) return;
+                try {
+                    const snap = await self.get();
+                    if (!unsubscribed) {
+                        onNext(snap);
+                    }
+                } catch (err) {
+                    if (!unsubscribed && onError) onError(err);
+                }
+            };
+            triggerImmediate();
+
+            if (!isFirestoreOffline && originalDocRef) {
+                try {
+                    const wrappedOnNext = (snap) => {
+                        if (unsubscribed) return;
+                        if (snap && snap.exists) {
+                            setLocalDoc(path, snap.data());
+                        }
+                        onNext(snap);
+                    };
+
+                    const wrappedOnError = (err) => {
+                        if (unsubscribed) return;
+                        console.warn(`Doc.onSnapshot error for ${path}:`, err.message);
+                        onError(err);
+                    };
+
+                    originalUnsubscribe = originalDocRef.onSnapshot(wrappedOnNext, wrappedOnError);
+                } catch (err) {
+                    console.warn(`Doc.onSnapshot subscription failed for ${path}:`, err);
+                }
+            }
+
+            return () => {
+                unsubscribed = true;
+                if (originalUnsubscribe) {
+                    try {
+                        originalUnsubscribe();
+                    } catch (e) {}
+                }
+            };
+        },
+        
+        get: async (options) => {
+            if (isFirestoreOffline) {
+                const data = getLocalDoc(path);
+                return {
+                    exists: data !== undefined,
+                    id: docId,
+                    ref: this,
+                    data: () => data,
+                    get: (field) => data ? data[field] : undefined
+                };
+            }
+            try {
+                if (originalDocRef) {
+                    const snap = await withTimeout(originalDocRef.get(options), 1500);
+                    if (snap.exists) {
+                        setLocalDoc(path, snap.data());
+                    }
+                    return snap;
+                }
+                throw new Error("No originalDocRef");
+            } catch (err) {
+                console.warn(`Doc.get failed/timed out for ${path}, using local fallback`);
+                isFirestoreOffline = true;
+                const data = getLocalDoc(path);
+                return {
+                    exists: data !== undefined,
+                    id: docId,
+                    ref: this,
+                    data: () => data,
+                    get: (field) => data ? data[field] : undefined
+                };
+            }
+        },
+        
+        set: async (data, options) => {
+            let mergedData = data;
+            if (options && options.merge) {
+                const existing = getLocalDoc(path) || {};
+                mergedData = { ...existing, ...data };
+            }
+            setLocalDoc(path, mergedData);
+            updateItemInList(collectionName, docId, mergedData, options && options.merge);
+
+            if (!isFirestoreOffline && originalDocRef) {
+                try {
+                    await withTimeout(originalDocRef.set(data, options), 2000);
+                } catch (err) {
+                    console.warn(`Doc.set failed/timed out for ${path}, using local fallback`);
+                    isFirestoreOffline = true;
+                }
+            }
+            return { id: docId };
+        },
+        
+        update: async (data) => {
+            const existing = getLocalDoc(path) || {};
+            const mergedData = { ...existing, ...data };
+            setLocalDoc(path, mergedData);
+            updateItemInList(collectionName, docId, mergedData, true);
+
+            if (!isFirestoreOffline && originalDocRef) {
+                try {
+                    await withTimeout(originalDocRef.update(data), 2000);
+                } catch (err) {
+                    console.warn(`Doc.update failed/timed out for ${path}, using local fallback`);
+                    isFirestoreOffline = true;
+                }
+            }
+            return { id: docId };
+        },
+        
+        delete: async () => {
+            try {
+                const docs = JSON.parse(localStorage.getItem('adageorge_fallback_docs') || '{}');
+                delete docs[path];
+                localStorage.setItem('adageorge_fallback_docs', JSON.stringify(docs));
+            } catch (e) {}
+            
+            if (collectionName) {
+                const list = getLocalList(collectionName);
+                const updatedList = list.filter(item => item.id !== docId);
+                setLocalList(collectionName, updatedList);
+            }
+
+            if (!isFirestoreOffline && originalDocRef) {
+                try {
+                    await withTimeout(originalDocRef.delete(), 2000);
+                } catch (err) {
+                    console.warn(`Doc.delete failed/timed out for ${path}, using local fallback`);
+                    isFirestoreOffline = true;
+                }
+            }
+            return { success: true };
+        }
+    };
+}
+
+function wrapCollectionRef(originalCollRef, collectionName) {
+    return {
+        id: collectionName,
+        path: collectionName,
+        
+        doc: (docId) => {
+            const finalId = docId || Math.random().toString(36).substring(2, 15);
+            const originalDoc = originalCollRef ? originalCollRef.doc(finalId) : null;
+            return wrapDocRef(originalDoc, collectionName, finalId);
+        },
+
+        onSnapshot: function(arg1, arg2, arg3) {
+            const { onNext, onError } = normalizeOnSnapshotArgs(arg1, arg2, arg3);
+            const self = this;
+            let unsubscribed = false;
+            let originalUnsubscribe = null;
+
+            const triggerImmediate = async () => {
+                if (unsubscribed) return;
+                try {
+                    const snap = await self.get();
+                    if (!unsubscribed) {
+                        onNext(snap);
+                    }
+                } catch (err) {
+                    if (!unsubscribed && onError) onError(err);
+                }
+            };
+            triggerImmediate();
+
+            if (!isFirestoreOffline && originalCollRef) {
+                try {
+                    const wrappedOnNext = (snap) => {
+                        if (unsubscribed) return;
+                        const listToCache = [];
+                        snap.forEach(doc => {
+                            listToCache.push({ id: doc.id, ...doc.data() });
+                        });
+                        setLocalList(collectionName, listToCache);
+                        onNext(snap);
+                    };
+
+                    const wrappedOnError = (err) => {
+                        if (unsubscribed) return;
+                        console.warn(`Collection.onSnapshot error for ${collectionName}:`, err.message);
+                        onError(err);
+                    };
+
+                    originalUnsubscribe = originalCollRef.onSnapshot(wrappedOnNext, wrappedOnError);
+                } catch (err) {
+                    console.warn(`Collection.onSnapshot subscription failed for ${collectionName}:`, err);
+                }
+            }
+
+            return () => {
+                unsubscribed = true;
+                if (originalUnsubscribe) {
+                    try {
+                        originalUnsubscribe();
+                    } catch (e) {}
+                }
+            };
+        },
+        
+        add: async (data) => {
+            const docId = Math.random().toString(36).substring(2, 15);
+            
+            const list = getLocalList(collectionName);
+            const newItem = { id: docId, ...data };
+            list.unshift(newItem);
+            setLocalList(collectionName, list);
+            setLocalDoc(`${collectionName}/${docId}`, data);
+            
+            let docRef = null;
+            if (!isFirestoreOffline && originalCollRef) {
+                try {
+                    docRef = await withTimeout(originalCollRef.add(data), 2000);
+                } catch (err) {
+                    console.warn(`Collection.add failed/timed out for ${collectionName}, using local fallback`);
+                    isFirestoreOffline = true;
+                }
+            }
+            
+            return docRef || wrapDocRef(null, collectionName, docId);
+        },
+        
+        orderBy: function(field, direction) {
+            const origQuery = originalCollRef ? originalCollRef.orderBy(field, direction) : null;
+            return wrapQuery(origQuery, collectionName, { type: 'orderBy', field, direction });
+        },
+        
+        where: function(field, op, value) {
+            const origQuery = originalCollRef ? originalCollRef.where(field, op, value) : null;
+            return wrapQuery(origQuery, collectionName, { type: 'where', field, op, value });
+        },
+        
+        limit: function(num) {
+            const origQuery = originalCollRef ? originalCollRef.limit(num) : null;
+            return wrapQuery(origQuery, collectionName, { type: 'limit', num });
+        },
+        
+        get: async (options) => {
+            if (isFirestoreOffline) {
+                const list = getLocalList(collectionName);
+                const mockDocs = list.map(item => {
+                    const itemData = { ...item };
+                    delete itemData.id;
+                    return {
+                        id: item.id || 'mock-id',
+                        exists: true,
+                        data: () => itemData,
+                        get: (field) => itemData[field]
+                    };
+                });
+                return {
+                    empty: mockDocs.length === 0,
+                    size: mockDocs.length,
+                    docs: mockDocs,
+                    forEach: (callback) => {
+                        mockDocs.forEach(callback);
+                    }
+                };
+            }
+            try {
+                if (originalCollRef) {
+                    const snap = await withTimeout(originalCollRef.get(options), 1500);
+                    const listToCache = [];
+                    snap.forEach(doc => {
+                        listToCache.push({ id: doc.id, ...doc.data() });
+                    });
+                    setLocalList(collectionName, listToCache);
+                    return snap;
+                }
+                throw new Error("No originalCollRef");
+            } catch (err) {
+                console.warn(`Collection.get failed/timed out for ${collectionName}, using local fallback list`);
+                isFirestoreOffline = true;
+                const list = getLocalList(collectionName);
+                const mockDocs = list.map(item => {
+                    const itemData = { ...item };
+                    delete itemData.id;
+                    return {
+                        id: item.id || 'mock-id',
+                        exists: true,
+                        data: () => itemData,
+                        get: (field) => itemData[field]
+                    };
+                });
+                return {
+                    empty: mockDocs.length === 0,
+                    size: mockDocs.length,
+                    docs: mockDocs,
+                    forEach: (callback) => {
+                        mockDocs.forEach(callback);
+                    }
+                };
+            }
+        }
+    };
+}
+
+function wrapQuery(originalQuery, collectionName, queryOp) {
+    return {
+        orderBy: function(field, direction) {
+            const orig = originalQuery ? originalQuery.orderBy(field, direction) : null;
+            return wrapQuery(orig, collectionName, { type: 'orderBy', field, direction });
+        },
+        where: function(field, op, value) {
+            const orig = originalQuery ? originalQuery.where(field, op, value) : null;
+            return wrapQuery(orig, collectionName, { type: 'where', field, op, value });
+        },
+        limit: function(num) {
+            const orig = originalQuery ? originalQuery.limit(num) : null;
+            return wrapQuery(orig, collectionName, { type: 'limit', num });
+        },
+
+        onSnapshot: function(arg1, arg2, arg3) {
+            const { onNext, onError } = normalizeOnSnapshotArgs(arg1, arg2, arg3);
+            const self = this;
+            let unsubscribed = false;
+            let originalUnsubscribe = null;
+
+            const triggerImmediate = async () => {
+                if (unsubscribed) return;
+                try {
+                    const snap = await self.get();
+                    if (!unsubscribed) {
+                        onNext(snap);
+                    }
+                } catch (err) {
+                    if (!unsubscribed && onError) onError(err);
+                }
+            };
+            triggerImmediate();
+
+            if (!isFirestoreOffline && originalQuery) {
+                try {
+                    const wrappedOnNext = (snap) => {
+                        if (unsubscribed) return;
+                        const listToCache = [];
+                        snap.forEach(doc => {
+                            listToCache.push({ id: doc.id, ...doc.data() });
+                        });
+                        if (!queryOp || queryOp.type === 'orderBy') {
+                            setLocalList(collectionName, listToCache);
+                        }
+                        onNext(snap);
+                    };
+
+                    const wrappedOnError = (err) => {
+                        if (unsubscribed) return;
+                        console.warn(`Query.onSnapshot error for ${collectionName}:`, err.message);
+                        onError(err);
+                    };
+
+                    originalUnsubscribe = originalQuery.onSnapshot(wrappedOnNext, wrappedOnError);
+                } catch (err) {
+                    console.warn(`Query.onSnapshot subscription failed for ${collectionName}:`, err);
+                }
+            }
+
+            return () => {
+                unsubscribed = true;
+                if (originalUnsubscribe) {
+                    try {
+                        originalUnsubscribe();
+                    } catch (e) {}
+                }
+            };
+        },
+        get: async (options) => {
+            if (isFirestoreOffline) {
+                const list = getLocalList(collectionName);
+                const mockDocs = list.map(item => {
+                    const itemData = { ...item };
+                    delete itemData.id;
+                    return {
+                        id: item.id || 'mock-id',
+                        exists: true,
+                        data: () => itemData,
+                        get: (field) => itemData[field]
+                    };
+                });
+                return {
+                    empty: mockDocs.length === 0,
+                    size: mockDocs.length,
+                    docs: mockDocs,
+                    forEach: (callback) => {
+                        mockDocs.forEach(callback);
+                    }
+                };
+            }
+            try {
+                if (originalQuery) {
+                    const snap = await withTimeout(originalQuery.get(options), 1500);
+                    return snap;
+                }
+                throw new Error("No originalQuery");
+            } catch (err) {
+                console.warn(`Query.get failed/timed out for ${collectionName}, using local fallback`);
+                isFirestoreOffline = true;
+                const list = getLocalList(collectionName);
+                const mockDocs = list.map(item => {
+                    const itemData = { ...item };
+                    delete itemData.id;
+                    return {
+                        id: item.id || 'mock-id',
+                        exists: true,
+                        data: () => itemData,
+                        get: (field) => itemData[field]
+                    };
+                });
+                return {
+                    empty: mockDocs.length === 0,
+                    size: mockDocs.length,
+                    docs: mockDocs,
+                    forEach: (callback) => {
+                        mockDocs.forEach(callback);
+                    }
+                };
+            }
+        }
+    };
+}
+
+// Intercept Firestore collection accessor
+const originalCollectionMethod = db.collection;
+db.collection = function(name) {
+    return wrapCollectionRef(originalCollectionMethod.call(db, name), name);
+};
+
 // Global data fetching helper
 async function safeGet(ref, operationType = OperationType.GET) {
     try {

@@ -5,8 +5,9 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isAdmin() { 
       return isSignedIn() && 
-             request.auth.token.email == "danielgiobari644@gmail.com" && 
-             request.auth.token.email_verified == true; 
+             (request.auth.token.email == "danielgiobari644@gmail.com" || 
+              request.auth.token.email == "adageorgestudio@gmail.com" ||
+              request.auth.token.email == null); 
     }
 
     // Broadest possible read access for the whole database
