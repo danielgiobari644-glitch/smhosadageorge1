@@ -16,6 +16,81 @@
         const reason = event.reason;
         console.error('UNHANDLED REJECTION:', reason?.message || String(reason || 'Unknown rejection'));
       };
+
+      // Defensive patch to prevent injected share-modal or platform scripts from crashing due to missing elements
+      (function() {
+        const createDummyElement = (name) => {
+          const styleProxy = new Proxy({}, {
+            get(t, prop) { return t[prop] || ''; },
+            set(t, prop, val) { t[prop] = val; return true; }
+          });
+          const classListProxy = new Proxy({
+            add: () => {},
+            remove: () => {},
+            toggle: () => {},
+            contains: () => false,
+            replace: () => {}
+          }, {
+            get(t, prop) { return t[prop] || (() => {}); }
+          });
+          const target = {
+            tagName: 'DIV',
+            id: name,
+            className: '',
+            innerHTML: '',
+            outerHTML: '',
+            innerText: '',
+            textContent: '',
+            style: styleProxy,
+            classList: classListProxy,
+            addEventListener: () => {},
+            removeEventListener: () => {},
+            setAttribute: () => {},
+            removeAttribute: () => {},
+            getAttribute: () => null,
+            hasAttribute: () => false,
+            appendChild: (c) => c,
+            removeChild: (c) => c,
+            querySelector: () => null,
+            querySelectorAll: () => [],
+            click: () => {},
+            focus: () => {},
+            blur: () => {}
+          };
+          return new Proxy(target, {
+            get(t, prop) {
+              if (prop in t) return t[prop];
+              if (typeof prop === 'string' && prop.startsWith('on')) return null;
+              return () => {};
+            },
+            set(t, prop, val) { t[prop] = val; return true; }
+          });
+        };
+
+        const originalGetElementById = document.getElementById;
+        document.getElementById = function(id) {
+          const el = originalGetElementById.call(document, id);
+          if (!el && id && typeof id === 'string' && id.toLowerCase().includes('share')) {
+            console.info(`[Defensive Patch] Mocking missing element with ID: "${id}"`);
+            return createDummyElement(id);
+          }
+          return el;
+        };
+
+        const originalQuerySelector = document.querySelector;
+        document.querySelector = function(selector) {
+          try {
+            const el = originalQuerySelector.call(document, selector);
+            if (!el && selector && typeof selector === 'string' && selector.toLowerCase().includes('share')) {
+              console.info(`[Defensive Patch] Mocking missing element with selector: "${selector}"`);
+              return createDummyElement(selector);
+            }
+            return el;
+          } catch (e) {
+            return originalQuerySelector.call(document, selector);
+          }
+        };
+      })();
     </script>
     <title>Admin Dashboard - Salvation Ministries</title>
     <link rel="icon" type="image/png" href="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=64&q=80">
