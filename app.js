@@ -192,6 +192,22 @@ async function loadThemeSettings() {
             
             if (heroTitle && theme.heroText) heroTitle.textContent = theme.heroText;
             if (heroSubtext && theme.heroSubtext) heroSubtext.textContent = theme.heroSubtext;
+
+            // Update Hero Buttons
+            const heroLivestreamBtn = document.getElementById('heroLivestreamBtn');
+            const heroGiveOnlineBtn = document.getElementById('heroGiveOnlineBtn');
+            if (heroLivestreamBtn) {
+                if (theme.heroBtn1Text) heroLivestreamBtn.textContent = theme.heroBtn1Text;
+                if (theme.heroBtn1Link) {
+                    heroLivestreamBtn.href = theme.heroBtn1Link;
+                } else if (theme.livestreamUrl) {
+                    heroLivestreamBtn.href = theme.livestreamUrl;
+                }
+            }
+            if (heroGiveOnlineBtn) {
+                if (theme.heroBtn2Text) heroGiveOnlineBtn.textContent = theme.heroBtn2Text;
+                if (theme.heroBtn2Link) heroGiveOnlineBtn.href = theme.heroBtn2Link;
+            }
             
             // Update section backgrounds
             const sermonSections = document.querySelectorAll('.sermon-teaser, #sermonHeader');
@@ -228,6 +244,15 @@ async function loadThemeSettings() {
                     // Default fallback
                     joinFamilySection.style.cssText += `; background: #0b1329 !important; background-image: none !important;`;
                 }
+
+                // Update Join Family Tag, Title, and Subtext
+                const joinFamilyTag = document.getElementById('joinFamilyTag');
+                const joinFamilyTitle = document.getElementById('joinFamilyTitle');
+                const joinFamilySubtext = document.getElementById('joinFamilySubtext');
+                
+                if (joinFamilyTag && theme.joinFamilyTag) joinFamilyTag.textContent = theme.joinFamilyTag;
+                if (joinFamilyTitle && theme.joinFamilyTitle) joinFamilyTitle.textContent = theme.joinFamilyTitle;
+                if (joinFamilySubtext && theme.joinFamilySubtext) joinFamilySubtext.textContent = theme.joinFamilySubtext;
             }
 
             const joinFellowshipBtn = document.getElementById('joinFellowshipBtn');
@@ -299,12 +324,6 @@ async function loadThemeSettings() {
                 } else {
                     mobileItem.style.display = 'none';
                 }
-            }
-            
-            // Update hero buttons
-            const heroLivestreamBtn = document.getElementById('heroLivestreamBtn');
-            if (heroLivestreamBtn && theme.livestreamUrl) {
-                heroLivestreamBtn.href = theme.livestreamUrl;
             }
             
             // Apply design variables
@@ -454,6 +473,10 @@ async function loadAboutContent() {
         if (doc && doc.exists) {
             const content = doc.data();
             
+            const aboutTag = document.getElementById('aboutTag');
+            const aboutTitle = document.getElementById('aboutTitle');
+            const aboutButton = document.getElementById('aboutButton');
+            
             const missionText = document.getElementById('missionText');
             const visionText = document.getElementById('visionText');
             const welcomeText = document.getElementById('welcomeText');
@@ -463,6 +486,21 @@ async function loadAboutContent() {
             const welcomeImg = document.getElementById('welcomeImage');
             
             const DEFAULT_CHURCH_IMG = 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=1200&q=80';
+
+            if (aboutTag && content.tag) aboutTag.textContent = content.tag;
+            if (aboutTitle && content.title) aboutTitle.textContent = content.title;
+            
+            if (aboutButton) {
+                if (content.buttonText) {
+                    aboutButton.innerHTML = `${content.buttonText} <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>`;
+                    if (window.lucide) {
+                        window.lucide.createIcons();
+                    }
+                }
+                if (content.buttonLink) {
+                    aboutButton.href = content.buttonLink;
+                }
+            }
 
             if (missionText && content.mission) missionText.textContent = content.mission;
             if (visionText && content.vision) visionText.textContent = content.vision;

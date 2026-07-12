@@ -366,6 +366,14 @@ async function loadThemeData() {
             if (joinFamilyFellowshipLink) joinFamilyFellowshipLink.value = theme.joinFamilyFellowshipLink || '#contact';
             if (joinFamilyNextStepsLink) joinFamilyNextStepsLink.value = theme.joinFamilyNextStepsLink || '#contact';
             if (joinFamilyServeLink) joinFamilyServeLink.value = theme.joinFamilyServeLink || '#ministries-serve';
+
+            const joinFamilyTagInput = document.getElementById('joinFamilyTagInput');
+            const joinFamilyTitleInput = document.getElementById('joinFamilyTitleInput');
+            const joinFamilySubtextInput = document.getElementById('joinFamilySubtextInput');
+
+            if (joinFamilyTagInput) joinFamilyTagInput.value = theme.joinFamilyTag || '';
+            if (joinFamilyTitleInput) joinFamilyTitleInput.value = theme.joinFamilyTitle || '';
+            if (joinFamilySubtextInput) joinFamilySubtextInput.value = theme.joinFamilySubtext || '';
         }
     } catch (error) {
         console.error('Error loading theme data:', error.message || String(error));
@@ -388,6 +396,17 @@ async function loadHeroData() {
             if (heroModeSelect) heroModeSelect.value = theme.heroMode || 'single';
             if (heroTitleInput) heroTitleInput.value = theme.heroText || '';
             if (heroSubtextInput) heroSubtextInput.value = theme.heroSubtext || '';
+
+            // New fields for customizable hero buttons
+            const heroBtn1Text = document.getElementById('heroBtn1Text');
+            const heroBtn1Link = document.getElementById('heroBtn1Link');
+            const heroBtn2Text = document.getElementById('heroBtn2Text');
+            const heroBtn2Link = document.getElementById('heroBtn2Link');
+
+            if (heroBtn1Text) heroBtn1Text.value = theme.heroBtn1Text || '';
+            if (heroBtn1Link) heroBtn1Link.value = theme.heroBtn1Link || '';
+            if (heroBtn2Text) heroBtn2Text.value = theme.heroBtn2Text || '';
+            if (heroBtn2Link) heroBtn2Link.value = theme.heroBtn2Link || '';
 
             const container = document.getElementById('heroImagesContainer');
             if (container) {
@@ -475,6 +494,11 @@ async function loadContentData() {
             const visionImageUrl = document.getElementById('visionImageUrl');
             const welcomeInput = document.getElementById('welcomeInput');
             const welcomeImageUrl = document.getElementById('welcomeImageUrl');
+            
+            const aboutTagInput = document.getElementById('aboutTagInput');
+            const aboutTitleInput = document.getElementById('aboutTitleInput');
+            const aboutButtonTextInput = document.getElementById('aboutButtonTextInput');
+            const aboutButtonLinkInput = document.getElementById('aboutButtonLinkInput');
 
             if (missionInput) missionInput.value = content.mission || '';
             if (missionImageUrl) missionImageUrl.value = content.missionImage || '';
@@ -482,6 +506,11 @@ async function loadContentData() {
             if (visionImageUrl) visionImageUrl.value = content.visionImage || '';
             if (welcomeInput) welcomeInput.value = content.welcomeMessage || '';
             if (welcomeImageUrl) welcomeImageUrl.value = content.welcomeImage || '';
+            
+            if (aboutTagInput) aboutTagInput.value = content.tag || '';
+            if (aboutTitleInput) aboutTitleInput.value = content.title || '';
+            if (aboutButtonTextInput) aboutButtonTextInput.value = content.buttonText || '';
+            if (aboutButtonLinkInput) aboutButtonLinkInput.value = content.buttonLink || '';
         }
     } catch (error) {
         console.error('Error loading content data:', error.message || String(error));
@@ -1089,7 +1118,10 @@ function setupForms() {
                 joinFamilyBgGradient: document.getElementById('joinFamilyBgGradient').value.trim(),
                 joinFamilyFellowshipLink: document.getElementById('joinFamilyFellowshipLink').value.trim(),
                 joinFamilyNextStepsLink: document.getElementById('joinFamilyNextStepsLink').value.trim(),
-                joinFamilyServeLink: document.getElementById('joinFamilyServeLink').value.trim()
+                joinFamilyServeLink: document.getElementById('joinFamilyServeLink').value.trim(),
+                joinFamilyTag: document.getElementById('joinFamilyTagInput')?.value || '',
+                joinFamilyTitle: document.getElementById('joinFamilyTitleInput')?.value || '',
+                joinFamilySubtext: document.getElementById('joinFamilySubtextInput')?.value || ''
             };
             
             const themeModeEl = document.getElementById('themeMode');
@@ -1129,6 +1161,11 @@ function setupForms() {
         const heroTitle = document.getElementById('heroTitleInput').value;
         const heroSubtext = document.getElementById('heroSubtextInput').value;
         
+        const heroBtn1Text = document.getElementById('heroBtn1Text')?.value || '';
+        const heroBtn1Link = document.getElementById('heroBtn1Link')?.value || '';
+        const heroBtn2Text = document.getElementById('heroBtn2Text')?.value || '';
+        const heroBtn2Link = document.getElementById('heroBtn2Link')?.value || '';
+
         const imageRows = document.querySelectorAll('.hero-image-row');
         const heroImages = Array.from(imageRows).map(row => ({
             url: row.querySelector('.hero-img-url').value.trim(),
@@ -1140,6 +1177,10 @@ function setupForms() {
                 heroImage: heroImages.length > 0 ? heroImages[0].url : '',
                 heroText: heroTitle,
                 heroSubtext: heroSubtext,
+                heroBtn1Text: heroBtn1Text,
+                heroBtn1Link: heroBtn1Link,
+                heroBtn2Text: heroBtn2Text,
+                heroBtn2Link: heroBtn2Link,
                 // Keep these for backward compatibility if needed, but primary focus is heroImage
                 heroMode: heroMode,
                 heroImages: heroImages
@@ -1165,7 +1206,11 @@ function setupForms() {
                 vision: document.getElementById('visionInput').value,
                 visionImage: document.getElementById('visionImageUrl').value,
                 welcomeMessage: document.getElementById('welcomeInput').value,
-                welcomeImage: document.getElementById('welcomeImageUrl').value
+                welcomeImage: document.getElementById('welcomeImageUrl').value,
+                tag: document.getElementById('aboutTagInput')?.value || '',
+                title: document.getElementById('aboutTitleInput')?.value || '',
+                buttonText: document.getElementById('aboutButtonTextInput')?.value || '',
+                buttonLink: document.getElementById('aboutButtonLinkInput')?.value || ''
             });
             alert('Content saved successfully!');
         } catch (error) {

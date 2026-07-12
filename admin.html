@@ -657,6 +657,20 @@
                         <h3 style="margin-top: 3rem; margin-bottom: 1.5rem; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 0.5rem; color: var(--text-dark);">"Ready to Join the Family" Section Settings</h3>
                         <div class="form-row">
                             <div class="form-group">
+                                <label>Section Tag</label>
+                                <input type="text" id="joinFamilyTagInput" placeholder="Our Community">
+                            </div>
+                            <div class="form-group">
+                                <label>Section Title</label>
+                                <input type="text" id="joinFamilyTitleInput" placeholder="Ready to Join the Family?">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Section Subtext</label>
+                            <textarea id="joinFamilySubtextInput" rows="2" placeholder="We believe everyone has a home, a purpose, and a family waiting for them here..."></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
                                 <label>Background Style Type</label>
                                 <select id="joinFamilyBgType">
                                     <option value="color">Solid Color</option>
@@ -731,6 +745,26 @@
                             <label>Subheading Text</label>
                             <input type="text" id="heroSubtextInput">
                         </div>
+                        <div class="form-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Button 1 (Left) Text</label>
+                                <input type="text" id="heroBtn1Text" placeholder="Livestream">
+                            </div>
+                            <div class="form-group">
+                                <label>Button 1 (Left) Link/ID</label>
+                                <input type="text" id="heroBtn1Link" placeholder="#livestream">
+                            </div>
+                        </div>
+                        <div class="form-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div class="form-group">
+                                <label>Button 2 (Right) Text</label>
+                                <input type="text" id="heroBtn2Text" placeholder="Give Online">
+                            </div>
+                            <div class="form-group">
+                                <label>Button 2 (Right) Link/ID</label>
+                                <input type="text" id="heroBtn2Link" placeholder="#offering">
+                            </div>
+                        </div>
                         <button type="submit" class="btn-admin">Save Hero Settings</button>
                     </form>
                 </div>
@@ -741,6 +775,16 @@
                 <div class="admin-card">
                     <h2>About Us Content</h2>
                     <form id="contentForm">
+                        <div class="form-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Section Tag</label>
+                                <input type="text" id="aboutTagInput" placeholder="OUR DIVINE COMMISSION">
+                            </div>
+                            <div class="form-group">
+                                <label>Section Title (e.g. "Here on Earth.")</label>
+                                <input type="text" id="aboutTitleInput" placeholder="Here on Earth.">
+                            </div>
+                        </div>
                         <div class="form-group">
                             <label>Mission Statement</label>
                             <textarea id="missionInput" rows="4"></textarea>
@@ -764,6 +808,16 @@
                         <div class="form-group">
                             <label>Portrait Image URL (The Mandate Section)</label>
                             <input type="url" id="welcomeImageUrl">
+                        </div>
+                        <div class="form-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div class="form-group">
+                                <label>Button CTA Text</label>
+                                <input type="text" id="aboutButtonTextInput" placeholder="Learn More">
+                            </div>
+                            <div class="form-group">
+                                <label>Button CTA Link</label>
+                                <input type="text" id="aboutButtonLinkInput" placeholder="#service-times">
+                            </div>
                         </div>
                         <button type="submit" class="btn-admin">Save Content</button>
                     </form>
