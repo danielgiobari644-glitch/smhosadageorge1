@@ -51,8 +51,13 @@
             hasAttribute: () => false,
             appendChild: (c) => c,
             removeChild: (c) => c,
-            querySelector: () => null,
-            querySelectorAll: () => [],
+            querySelector: (sel) => createDummyElement(sel || 'dummy'),
+            querySelectorAll: (sel) => {
+              const dummy = createDummyElement(sel || 'dummy');
+              const arr = [dummy];
+              arr.forEach = (cb) => cb(dummy, 0, arr);
+              return arr;
+            },
             click: () => {},
             focus: () => {},
             blur: () => {}
