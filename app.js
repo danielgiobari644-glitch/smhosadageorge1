@@ -157,6 +157,37 @@ async function loadThemeSettings() {
                 document.documentElement.style.setProperty('--accent-color', theme.accentColor);
             }
 
+            // Global Text & Elements Color Customization
+            if (theme.textDarkColor) document.documentElement.style.setProperty('--text-dark', theme.textDarkColor);
+            if (theme.textMutedColor) document.documentElement.style.setProperty('--text-muted', theme.textMutedColor);
+            if (theme.textLightColor) document.documentElement.style.setProperty('--text-light', theme.textLightColor);
+
+            if (theme.navbarBgColor) document.documentElement.style.setProperty('--bg-navbar', theme.navbarBgColor);
+            if (theme.navbarTextColor) document.documentElement.style.setProperty('--navbar-text-color', theme.navbarTextColor);
+
+            if (theme.heroTitleColor) document.documentElement.style.setProperty('--hero-title-color', theme.heroTitleColor);
+            if (theme.heroSubtextColor) document.documentElement.style.setProperty('--hero-subtext-color', theme.heroSubtextColor);
+
+            if (theme.quoteBgColor) document.documentElement.style.setProperty('--quote-bg-color', theme.quoteBgColor);
+            if (theme.quoteTextColor) document.documentElement.style.setProperty('--quote-text-color', theme.quoteTextColor);
+            if (theme.quoteAuthorColor) document.documentElement.style.setProperty('--quote-author-color', theme.quoteAuthorColor);
+
+            if (theme.sermonTextColor) document.documentElement.style.setProperty('--sermon-text-color', theme.sermonTextColor);
+
+            if (theme.testimonyBgColor) document.documentElement.style.setProperty('--testimony-bg-color', theme.testimonyBgColor);
+            if (theme.testimonyTextColor) document.documentElement.style.setProperty('--testimony-text-color', theme.testimonyTextColor);
+
+            if (theme.joinFamilyTextColor) document.documentElement.style.setProperty('--join-family-text-color', theme.joinFamilyTextColor);
+
+            if (theme.footerBgColor) document.documentElement.style.setProperty('--footer-bg-color', theme.footerBgColor);
+            if (theme.footerTextColor) document.documentElement.style.setProperty('--footer-text-color', theme.footerTextColor);
+
+            if (theme.btnBgColor) document.documentElement.style.setProperty('--btn-bg-color', theme.btnBgColor);
+            if (theme.btnTextColor) document.documentElement.style.setProperty('--btn-text-color', theme.btnTextColor);
+
+            if (theme.bgLightColor) document.documentElement.style.setProperty('--bg-light', theme.bgLightColor);
+            if (theme.bgWhiteColor) document.documentElement.style.setProperty('--bg-white', theme.bgWhiteColor);
+
             if (theme.mode === 'dark') {
                 document.body.classList.add('dark-mode');
             } else if (theme.mode === 'light') {
@@ -638,35 +669,75 @@ async function loadQuotes() {
         const validDocs = snapshot && snapshot.docs ? snapshot.docs.filter(doc => doc.data().active !== false) : [];
 
         if (validDocs.length > 0) {
-            // Render active quotes (if multiple, render the primary active quote or slide list)
-            const activeQuoteDoc = validDocs[0];
-            const quote = activeQuoteDoc.data();
-            
-            let quoteContent = '';
-            if (quote.type === 'image' && quote.imageUrl) {
-                quoteContent = `
-                    <div class="quote-slide">
-                        <img src="${quote.imageUrl}" class="quote-item-image" alt="Daily Quote" loading="lazy" decoding="async">
-                    </div>
-                `;
-            } else if (quote.type === 'both' && quote.imageUrl) {
-                quoteContent = `
-                    <div class="quote-slide">
-                        <img src="${quote.imageUrl}" class="quote-item-image" alt="Daily Quote" style="margin-bottom: 2rem; max-height: 400px; border-radius: 12px; object-fit: cover;" loading="lazy" decoding="async">
-                        <blockquote>"${quote.text || ''}"</blockquote>
-                        ${quote.author ? `<cite>— ${quote.author}</cite>` : ''}
-                    </div>
-                `;
-            } else {
-                quoteContent = `
-                    <div class="quote-slide">
-                        <blockquote>"${quote.text || ''}"</blockquote>
-                        ${quote.author ? `<cite>— ${quote.author}</cite>` : ''}
-                    </div>
-                `;
-            }
+            let activeIndex = 0;
 
-            container.innerHTML = quoteContent;
+            const renderQuoteAt = (index) => {
+                const quote = validDocs[index].data();
+                
+                let quoteContent = '';
+                if (quote.type === 'image' && quote.imageUrl) {
+                    quoteContent = `
+                        <div class="quote-slide">
+                            <img src="${quote.imageUrl}" class="quote-item-image img-loaded" alt="Daily Quote" loading="eager">
+                        </div>
+                    `;
+                } else if (quote.type === 'both') {
+                    quoteContent = `
+                        <div class="quote-slide">
+                            ${quote.imageUrl ? `<img src="${quote.imageUrl}" class="quote-item-image img-loaded" alt="Daily Quote" style="margin-bottom: 2rem; max-height: 380px; width: auto; border-radius: 16px; object-fit: cover;" loading="eager">` : ''}
+                            ${quote.text ? `<blockquote>"${quote.text}"</blockquote>` : ''}
+                            ${quote.author ? `<cite>— ${quote.author}</cite>` : ''}
+                        </div>
+                    `;
+                } else {
+                    quoteContent = `
+                        <div class="quote-slide">
+                            <blockquote>"${quote.text || ''}"</blockquote>
+                            ${quote.author ? `<cite>— ${quote.author}</cite>` : ''}
+                        </div>
+                    `;
+                }
+
+                if (validDocs.length > 1) {
+                    quoteContent += `
+                        <div class="quote-nav" style="display: flex; align-items: center; justify-content: center; gap: 1.25rem; margin-top: 2.5rem; position: relative; z-index: 20;">
+                            <button id="prevQuoteBtn" aria-label="Previous Quote" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.25); color: white; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                                <i data-lucide="chevron-left" style="width: 22px; height: 22px;"></i>
+                            </button>
+                            <span style="font-size: 0.9rem; opacity: 0.9; font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.05em; background: rgba(0,0,0,0.3); padding: 4px 14px; border-radius: 20px;">${index + 1} / ${validDocs.length}</span>
+                            <button id="nextQuoteBtn" aria-label="Next Quote" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.25); color: white; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                                <i data-lucide="chevron-right" style="width: 22px; height: 22px;"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = quoteContent;
+
+                if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                    lucide.createIcons();
+                }
+
+                const imgs = container.querySelectorAll('img');
+                imgs.forEach(img => {
+                    if (typeof handleImagePop === 'function') handleImagePop(img);
+                });
+
+                if (validDocs.length > 1) {
+                    document.getElementById('prevQuoteBtn')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        activeIndex = (activeIndex - 1 + validDocs.length) % validDocs.length;
+                        renderQuoteAt(activeIndex);
+                    });
+                    document.getElementById('nextQuoteBtn')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        activeIndex = (activeIndex + 1) % validDocs.length;
+                        renderQuoteAt(activeIndex);
+                    });
+                }
+            };
+
+            renderQuoteAt(0);
         } else {
             container.innerHTML = `
                 <div class="quote-slide">

@@ -46,6 +46,67 @@
     --navbar-height: 80px;
     --container-max-width: 1280px;
     --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* Customizable Element & Text Colors */
+    --navbar-text-color: var(--text-dark);
+    --hero-title-color: #ffffff;
+    --hero-subtext-color: #cbd5e1;
+    --quote-bg-color: #030712;
+    --quote-text-color: #ffffff;
+    --quote-author-color: var(--primary-color);
+    --sermon-text-color: #ffffff;
+    --testimony-bg-color: var(--bg-light);
+    --testimony-text-color: var(--text-dark);
+    --join-family-text-color: #ffffff;
+    --footer-bg-color: #090d16;
+    --footer-text-color: #cbd5e1;
+    --btn-bg-color: var(--primary-color);
+    --btn-text-color: #ffffff;
+}
+
+/* Custom Element Color Connectors */
+.nav-link {
+    color: var(--navbar-text-color);
+}
+.hero-title {
+    color: var(--hero-title-color);
+    background: none;
+    -webkit-text-fill-color: var(--hero-title-color);
+}
+.hero-subtitle {
+    color: var(--hero-subtext-color);
+}
+.quote-section {
+    background-color: var(--quote-bg-color);
+}
+.quote-slide blockquote {
+    color: var(--quote-text-color);
+    background: none;
+    -webkit-text-fill-color: var(--quote-text-color);
+}
+.quote-slide cite {
+    color: var(--quote-author-color);
+}
+.sermon-teaser, .sermon-teaser h2, .sermon-teaser p, #sermonHeader {
+    color: var(--sermon-text-color);
+}
+.testimonies-section {
+    background-color: var(--testimony-bg-color);
+    color: var(--testimony-text-color);
+}
+#join-family-section, #join-family-section h2, #join-family-section p {
+    color: var(--join-family-text-color);
+}
+.site-footer {
+    background-color: var(--footer-bg-color);
+    color: var(--footer-text-color);
+}
+.site-footer a, .site-footer p {
+    color: var(--footer-text-color);
+}
+.btn-primary, .btn-hero-primary, .btn-admin {
+    background-color: var(--btn-bg-color, var(--primary-color));
+    color: var(--btn-text-color, #ffffff);
 }
 
 /* --- DARK MODE OVERRIDES --- */

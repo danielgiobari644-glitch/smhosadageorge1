@@ -423,6 +423,49 @@ async function loadThemeData() {
             if (joinFamilyTagInput) joinFamilyTagInput.value = theme.joinFamilyTag || '';
             if (joinFamilyTitleInput) joinFamilyTitleInput.value = theme.joinFamilyTitle || '';
             if (joinFamilySubtextInput) joinFamilySubtextInput.value = theme.joinFamilySubtext || '';
+
+            // Global text & elements color customization fields
+            const textDarkColor = document.getElementById('textDarkColor');
+            const textMutedColor = document.getElementById('textMutedColor');
+            const textLightColor = document.getElementById('textLightColor');
+            const navbarBgColor = document.getElementById('navbarBgColor');
+            const navbarTextColor = document.getElementById('navbarTextColor');
+            const heroTitleColor = document.getElementById('heroTitleColor');
+            const heroSubtextColor = document.getElementById('heroSubtextColor');
+            const quoteBgColor = document.getElementById('quoteBgColor');
+            const quoteTextColor = document.getElementById('quoteTextColor');
+            const quoteAuthorColor = document.getElementById('quoteAuthorColor');
+            const sermonTextColor = document.getElementById('sermonTextColor');
+            const testimonyBgColor = document.getElementById('testimonyBgColor');
+            const testimonyTextColor = document.getElementById('testimonyTextColor');
+            const joinFamilyTextColor = document.getElementById('joinFamilyTextColor');
+            const footerBgColor = document.getElementById('footerBgColor');
+            const footerTextColor = document.getElementById('footerTextColor');
+            const btnBgColor = document.getElementById('btnBgColor');
+            const btnTextColor = document.getElementById('btnTextColor');
+            const bgLightColor = document.getElementById('bgLightColor');
+            const bgWhiteColor = document.getElementById('bgWhiteColor');
+
+            if (textDarkColor) textDarkColor.value = theme.textDarkColor || '#0f172a';
+            if (textMutedColor) textMutedColor.value = theme.textMutedColor || '#475569';
+            if (textLightColor) textLightColor.value = theme.textLightColor || '#64748b';
+            if (navbarBgColor) navbarBgColor.value = theme.navbarBgColor || '#ffffff';
+            if (navbarTextColor) navbarTextColor.value = theme.navbarTextColor || '#0f172a';
+            if (heroTitleColor) heroTitleColor.value = theme.heroTitleColor || '#ffffff';
+            if (heroSubtextColor) heroSubtextColor.value = theme.heroSubtextColor || '#cbd5e1';
+            if (quoteBgColor) quoteBgColor.value = theme.quoteBgColor || '#030712';
+            if (quoteTextColor) quoteTextColor.value = theme.quoteTextColor || '#ffffff';
+            if (quoteAuthorColor) quoteAuthorColor.value = theme.quoteAuthorColor || '#ff1f40';
+            if (sermonTextColor) sermonTextColor.value = theme.sermonTextColor || '#ffffff';
+            if (testimonyBgColor) testimonyBgColor.value = theme.testimonyBgColor || '#f8fafc';
+            if (testimonyTextColor) testimonyTextColor.value = theme.testimonyTextColor || '#0f172a';
+            if (joinFamilyTextColor) joinFamilyTextColor.value = theme.joinFamilyTextColor || '#ffffff';
+            if (footerBgColor) footerBgColor.value = theme.footerBgColor || '#090d16';
+            if (footerTextColor) footerTextColor.value = theme.footerTextColor || '#cbd5e1';
+            if (btnBgColor) btnBgColor.value = theme.btnBgColor || '#ff1f40';
+            if (btnTextColor) btnTextColor.value = theme.btnTextColor || '#ffffff';
+            if (bgLightColor) bgLightColor.value = theme.bgLightColor || '#f8fafc';
+            if (bgWhiteColor) bgWhiteColor.value = theme.bgWhiteColor || '#ffffff';
         }
     } catch (error) {
         console.error('Error loading theme data:', error.message || String(error));
@@ -1170,7 +1213,27 @@ function setupForms() {
                 joinFamilyServeLink: document.getElementById('joinFamilyServeLink').value.trim(),
                 joinFamilyTag: document.getElementById('joinFamilyTagInput')?.value || '',
                 joinFamilyTitle: document.getElementById('joinFamilyTitleInput')?.value || '',
-                joinFamilySubtext: document.getElementById('joinFamilySubtextInput')?.value || ''
+                joinFamilySubtext: document.getElementById('joinFamilySubtextInput')?.value || '',
+                textDarkColor: document.getElementById('textDarkColor')?.value || '#0f172a',
+                textMutedColor: document.getElementById('textMutedColor')?.value || '#475569',
+                textLightColor: document.getElementById('textLightColor')?.value || '#64748b',
+                navbarBgColor: document.getElementById('navbarBgColor')?.value || '#ffffff',
+                navbarTextColor: document.getElementById('navbarTextColor')?.value || '#0f172a',
+                heroTitleColor: document.getElementById('heroTitleColor')?.value || '#ffffff',
+                heroSubtextColor: document.getElementById('heroSubtextColor')?.value || '#cbd5e1',
+                quoteBgColor: document.getElementById('quoteBgColor')?.value || '#030712',
+                quoteTextColor: document.getElementById('quoteTextColor')?.value || '#ffffff',
+                quoteAuthorColor: document.getElementById('quoteAuthorColor')?.value || '#ff1f40',
+                sermonTextColor: document.getElementById('sermonTextColor')?.value || '#ffffff',
+                testimonyBgColor: document.getElementById('testimonyBgColor')?.value || '#f8fafc',
+                testimonyTextColor: document.getElementById('testimonyTextColor')?.value || '#0f172a',
+                joinFamilyTextColor: document.getElementById('joinFamilyTextColor')?.value || '#ffffff',
+                footerBgColor: document.getElementById('footerBgColor')?.value || '#090d16',
+                footerTextColor: document.getElementById('footerTextColor')?.value || '#cbd5e1',
+                btnBgColor: document.getElementById('btnBgColor')?.value || '#ff1f40',
+                btnTextColor: document.getElementById('btnTextColor')?.value || '#ffffff',
+                bgLightColor: document.getElementById('bgLightColor')?.value || '#f8fafc',
+                bgWhiteColor: document.getElementById('bgWhiteColor')?.value || '#ffffff'
             };
             
             const themeModeEl = document.getElementById('themeMode');

@@ -887,6 +887,8 @@ function wrapCollectionRef(originalCollRef, collectionName) {
 
 function wrapQuery(originalQuery, collectionName, queryOp) {
     return {
+        id: collectionName,
+        path: collectionName,
         orderBy: function(field, direction) {
             const orig = originalQuery ? originalQuery.orderBy(field, direction) : null;
             return wrapQuery(orig, collectionName, { type: 'orderBy', field, direction });
@@ -1016,18 +1018,9 @@ db.collection = function(name) {
 };
 
 // Global data fetching helper
-async function safeGet(ref, operationType = OperationType.GET) {
-    if (ref && ref.path) {
-        const localDoc = getLocalDoc(ref.path);
-        if (localDoc !== undefined && localDoc !== null) {
-            return {
-                exists: true,
-                id: ref.id,
-                ref: ref,
-                data: () => localDoc,
-                get: (field) => localDoc[field]
-            };
-        }
+async function safeGet(ref, operationType = OperationType.READ) {
+    if (!ref) {
+        return { exists: false, id: 'unknown', ref: null, data: () => null, get: () => null };
     }
     try {
         const snap = await ref.get();
@@ -1062,29 +1055,6 @@ async function safeGet(ref, operationType = OperationType.GET) {
 // Global list fetching helper
 async function safeList(query, operationType = OperationType.LIST) {
     const collectionId = getCollectionId(query);
-    if (collectionId) {
-        const localList = getLocalList(collectionId);
-        if (Array.isArray(localList) && localList.length > 0) {
-            const mockDocs = localList.map(item => {
-                const itemData = { ...item };
-                delete itemData.id;
-                return {
-                    id: item.id || 'mock-id',
-                    exists: true,
-                    data: () => itemData,
-                    get: (field) => itemData[field]
-                };
-            });
-            return {
-                empty: mockDocs.length === 0,
-                size: mockDocs.length,
-                docs: mockDocs,
-                forEach: (callback) => {
-                    mockDocs.forEach(callback);
-                }
-            };
-        }
-    }
 
     try {
         const snap = await query.get();
