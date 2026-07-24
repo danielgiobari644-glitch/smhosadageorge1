@@ -1,1587 +1,1134 @@
-// Public Site JavaScript - Salvation Ministries Ada George
-// Handles dynamic content loading, form submissions, and real-time updates
+/* ═══════════════════════════════════════════════════════════════
+   Ada George Church — Public Site Application Logic
+   Pure Vanilla JavaScript · Firebase v8 · Local-First Architecture
+   ═══════════════════════════════════════════════════════════════ */
 
-// Wait for Firebase to initialize
-document.addEventListener('DOMContentLoaded', () => {
-    waitForFirebase().then(() => {
-        initializeSite();
-    });
-});
+// ── 1. Constants & Local Storage Helpers ──────────────────────
 
-function initializeSite() {
-    // Boost image load speed and transitions globally
-    setupImagePerformanceBooster();
+const LS_PREFIX = 'church_';
+const SYNC_EVENT = 'localstorage_data_changed';
 
-    // Load all dynamic content
-    loadThemeSettings();
-    loadAboutContent();
-    loadQuotes();
-    loadServiceTimes();
-    loadSermons();
-    loadEvents();
-    loadMoments();
-    loadTestimonies();
-    loadContactInfo();
-    loadOfferingDetails();
-    loadCustomSections();
-    
-    // Setup navigation
-    setupNavigation();
-    
-    // Setup form handlers
-    setupTestimonyForm();
-    setupContactForm();
+function lsKey(collection, id) {
+  return id ? LS_PREFIX + collection + '_' + id : LS_PREFIX + collection + '_all';
+}
 
-    // Setup moments tabs
-    setupMomentsTabs();
+function lsGet(key) {
+  try {
+    var r = localStorage.getItem(key);
+    return r ? JSON.parse(r) : null;
+  } catch (e) {
+    return null;
+  }
+}
 
-    // Initialize icons
-    if (window.lucide) {
-        lucide.createIcons();
+function lsSet(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: key } }));
+  } catch (e) { /* storage full or private mode */ }
+}
+
+// ── 2. Theme Application ─────────────────────────────────────
+
+var DEFAULT_THEME = {
+  primaryColor: '#8B5E3C',
+  secondaryColor: '#F5E6D3',
+  accentColor: '#C4956A',
+  darkMode: false,
+  borderRadius: 12,
+  fontScale: 1,
+  sectionSpacing: 80,
+  logoUrl: '',
+  faviconUrl: ''
+};
+
+function darkenHex(hex, amount) {
+  amount = amount || 0.15;
+  hex = hex.replace('#', '');
+  if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  var r = Math.max(0, Math.round(parseInt(hex.substring(0,2), 16) * (1 - amount)));
+  var g = Math.max(0, Math.round(parseInt(hex.substring(2,4), 16) * (1 - amount)));
+  var b = Math.max(0, Math.round(parseInt(hex.substring(4,6), 16) * (1 - amount)));
+  return '#' + [r, g, b].map(function(c) { return c.toString(16).padStart(2, '0'); }).join('');
+}
+
+function applyTheme(settings) {
+  if (!settings || typeof settings !== 'object') settings = {};
+  var s = {};
+  for (var k in DEFAULT_THEME) {
+    s[k] = settings[k] !== undefined ? settings[k] : DEFAULT_THEME[k];
+  }
+
+  var root = document.documentElement;
+  root.style.setProperty('--primary', s.primaryColor);
+  root.style.setProperty('--primary-hover', darkenHex(s.primaryColor, 0.15));
+  root.style.setProperty('--secondary', s.secondaryColor);
+  root.style.setProperty('--accent', s.accentColor);
+  root.style.setProperty('--radius', s.borderRadius + 'px');
+  root.style.setProperty('--font-scale', String(s.fontScale));
+  root.style.setProperty('--section-spacing', s.sectionSpacing + 'px');
+
+  // Derive smaller radius tokens
+  root.style.setProperty('--radius-sm', Math.round(s.borderRadius * 0.67) + 'px');
+  root.style.setProperty('--radius-lg', Math.round(s.borderRadius * 1.67) + 'px');
+
+  // Dark mode
+  if (s.darkMode) {
+    root.setAttribute('data-theme', 'dark');
+  } else {
+    root.removeAttribute('data-theme');
+  }
+
+  // Favicon
+  if (s.faviconUrl) {
+    var favicon = document.querySelector("link[rel*='icon']");
+    if (favicon) {
+      favicon.href = s.faviconUrl;
+    } else {
+      var link = document.createElement('link');
+      link.rel = 'icon';
+      link.href = s.faviconUrl;
+      document.head.appendChild(link);
     }
-    
-    // Listen for real-time updates
-    setupRealtimeListeners();
+  }
+
+  // Logo image
+  if (s.logoUrl) {
+    var logoImg = document.querySelector('.logo img');
+    if (logoImg) logoImg.src = s.logoUrl;
+  }
 }
 
-// ========================================
-// Navigation
-// ========================================
+// ── 3. Data Fetching (Local-First) ───────────────────────────
 
-function setupNavigation() {
-    const navToggle = document.getElementById('mobileToggle');
-    const navMenu = document.getElementById('navMenu');
-    const navLinks = document.querySelectorAll('.nav-link');
+function safeGet(collectionName, docId) {
+  var key = lsKey(collectionName, docId);
+  var cached = lsGet(key);
+  var p = new Promise(function(resolve) {
+    if (cached) resolve(cached);
+  });
 
-    // Mobile menu toggle
-    navToggle?.addEventListener('click', () => {
-        const isActive = navMenu.classList.toggle('active');
-        const icon = navToggle.querySelector('i');
-        if (icon) {
-            icon.setAttribute('data-lucide', isActive ? 'x' : 'menu');
-            if (window.lucide) lucide.createIcons();
+  var fetchPromise = db.collection(collectionName).doc(docId).get()
+    .then(function(doc) {
+      if (doc.exists) {
+        var data = Object.assign({ _id: doc.id }, doc.data());
+        lsSet(key, data);
+        return data;
+      }
+      return cached;
+    })
+    .catch(function(err) {
+      console.warn('safeGet failed for', collectionName + '/' + docId, err);
+      return cached;
+    });
+
+  return cached ? fetchPromise : fetchPromise.then(function(data) {
+    return data || cached;
+  });
+}
+
+function safeList(collectionName, orderField, limitCount) {
+  var key = lsKey(collectionName);
+  var cached = lsGet(key);
+
+  var query = db.collection(collectionName).orderBy(orderField || 'createdAt', 'desc');
+  if (limitCount) query = query.limit(limitCount);
+
+  return query.get()
+    .then(function(snapshot) {
+      var items = [];
+      snapshot.forEach(function(doc) {
+        items.push(Object.assign({ _id: doc.id }, doc.data()));
+      });
+      lsSet(key, items);
+      return items;
+    })
+    .catch(function(err) {
+      console.warn('safeList failed for', collectionName, err);
+      return cached || [];
+    });
+}
+
+function safeQuery(collectionName, field, op, value) {
+  var key = lsKey(collectionName) + '_query_' + field + '_' + op + '_' + String(value);
+  var cached = lsGet(key);
+
+  return db.collection(collectionName).where(field, op, value).get()
+    .then(function(snapshot) {
+      var items = [];
+      snapshot.forEach(function(doc) {
+        items.push(Object.assign({ _id: doc.id }, doc.data()));
+      });
+      lsSet(key, items);
+      return items;
+    })
+    .catch(function(err) {
+      console.warn('safeQuery failed for', collectionName, err);
+      return cached || [];
+    });
+}
+
+// ── 4. Cross-Tab Sync Listener ───────────────────────────────
+
+function setupCrossTabSync() {
+  // Other tabs making changes via storage event
+  window.addEventListener('storage', function(e) {
+    if (e.key && e.key.indexOf(LS_PREFIX) === 0) {
+      handleDataChange(e.key);
+    }
+  });
+
+  // Same tab dispatches custom event after lsSet
+  window.addEventListener(SYNC_EVENT, function(e) {
+    if (e.detail && e.detail.key) {
+      handleDataChange(e.detail.key);
+    }
+  });
+}
+
+function handleDataChange(key) {
+  // Map localStorage keys to section reloaders
+  if (key.indexOf('settings') !== -1) loadTheme();
+  if (key.indexOf('content_hero') !== -1) loadHero();
+  if (key.indexOf('services') !== -1) loadServices();
+  if (key.indexOf('sermons') !== -1) loadSermons();
+  if (key.indexOf('quotes') !== -1) loadQuotes();
+  if (key.indexOf('moments') !== -1) loadMoments();
+  if (key.indexOf('testimonies') !== -1) loadTestimonies();
+  if (key.indexOf('sections') !== -1) loadDynamicSections();
+}
+
+// ── 5. Scroll Progress Bar ───────────────────────────────────
+
+function setupScrollProgress() {
+  var bar = document.getElementById('scrollProgress');
+  if (!bar) return;
+
+  var ticking = false;
+  window.addEventListener('scroll', function() {
+    if (!ticking) {
+      requestAnimationFrame(function() {
+        var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        var docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        var percent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+        bar.style.width = Math.min(percent, 100) + '%';
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
+}
+
+// ── 6. Header Scroll Effect ──────────────────────────────────
+
+function setupHeaderScroll() {
+  var header = document.getElementById('siteHeader');
+  if (!header) return;
+
+  var ticking = false;
+  window.addEventListener('scroll', function() {
+    if (!ticking) {
+      requestAnimationFrame(function() {
+        if (window.pageYOffset > 50) {
+          header.classList.add('scrolled');
+        } else {
+          header.classList.remove('scrolled');
         }
-    });
-    
-    // Smooth scroll and close menu
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            if (link.getAttribute('href').startsWith('#')) {
-                e.preventDefault();
-                const target = document.querySelector(link.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
-                    navMenu.classList.remove('active');
-                    const icon = navToggle?.querySelector('i');
-                    if (icon) {
-                        icon.setAttribute('data-lucide', 'menu');
-                        if (window.lucide) lucide.createIcons();
-                    }
-                }
-            }
-        });
-    });
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
 }
 
-// ========================================
-// Theme Settings
-// ========================================
+// ── 7. Mobile Navigation ────────────────────────────────────
 
-let heroInterval = null;
+function setupMobileNav() {
+  var toggle = document.getElementById('mobileToggle');
+  var drawer = document.getElementById('mobileDrawer');
+  var overlay = document.getElementById('mobileOverlay');
 
-async function loadThemeSettings() {
-    try {
-        const doc = await safeGet(db.collection(Collections.SETTINGS).doc('theme'));
-        if (doc && doc.exists) {
-            const theme = doc.data();
-            
-            if (heroInterval) {
-                clearInterval(heroInterval);
-                heroInterval = null;
-            }
-            
-            // Update CSS variables
-            if (theme.primaryColor) {
-                document.documentElement.style.setProperty('--primary-color', theme.primaryColor);
-            }
-            if (theme.secondaryColor) {
-                document.documentElement.style.setProperty('--secondary-color', theme.secondaryColor);
-            }
-            if (theme.accentColor) {
-                document.documentElement.style.setProperty('--accent-color', theme.accentColor);
-            }
-            
-            // Update logo
-            if (theme.logoUrl) {
-                const logos = document.querySelectorAll('.nav-logo img, .footer-logo img');
-                logos.forEach(logo => {
-                    logo.src = theme.logoUrl;
-                });
-            }
+  if (!toggle || !drawer || !overlay) return;
 
-            // Update favicon
-            if (theme.faviconUrl) {
-                let link = document.querySelector("link[rel~='icon']");
-                if (!link) {
-                    link = document.createElement('link');
-                    link.rel = 'icon';
-                    document.getElementsByTagName('head')[0].appendChild(link);
-                }
-                link.href = theme.faviconUrl;
-            }
-            
-            // Update hero section
-            const heroBackground = document.getElementById('heroBackground');
-            const heroTitle = document.getElementById('heroTitle');
-            const heroSubtext = document.getElementById('heroSubtext');
-            
-            if (heroBackground) {
-                const mode = theme.heroMode || 'collage';
-                const items = (theme.heroImages || []).filter(img => img && img.url);
-                
-                if (items.length > 0) {
-                    heroBackground.innerHTML = '';
-                    if (mode === 'single') {
-                        const img = items[0];
-                        heroBackground.innerHTML = `
-                            <div class="hero-single" style="background-image: url('${img.url}')"></div>
-                        `;
-                    } else if (mode === 'collage') {
-                        const collage = document.createElement('div');
-                        collage.className = 'hero-collage';
-                        items.slice(0, 8).forEach(img => {
-                            const item = document.createElement('a');
-                            item.href = img.link || '#';
-                            item.className = 'hero-collage-item';
-                            item.style.backgroundImage = `url('${img.url}')`;
-                            collage.appendChild(item);
-                        });
-                        heroBackground.appendChild(collage);
-                    } else if (mode === 'slideshow') {
-                        const slideshow = document.createElement('div');
-                        slideshow.className = 'hero-slideshow';
-                        items.forEach((img, index) => {
-                            const slide = document.createElement('a');
-                            slide.href = img.link || '#';
-                            slide.className = `hero-slide ${index === 0 ? 'active' : ''}`;
-                            slide.style.backgroundImage = `url('${img.url}')`;
-                            slideshow.appendChild(slide);
-                        });
-                        heroBackground.appendChild(slideshow);
-                        
-                        if (items.length > 1) {
-                            let currentSlide = 0;
-                            heroInterval = setInterval(() => {
-                                const slides = slideshow.querySelectorAll('.hero-slide');
-                                if (slides.length > 0) {
-                                    slides[currentSlide].classList.remove('active');
-                                    currentSlide = (currentSlide + 1) % slides.length;
-                                    slides[currentSlide].classList.add('active');
-                                }
-                            }, 5000);
-                        }
-                    }
-                } else if (theme.heroImage) {
-                    heroBackground.innerHTML = `
-                        <div class="hero-single" style="background-image: url('${theme.heroImage}')"></div>
-                    `;
-                }
-                // If everything is empty, heroBackground remains as it is in HTML (empty), 
-                // letting the CSS background of .hero show through.
-            }
-            
-            if (heroTitle && theme.heroText) heroTitle.textContent = theme.heroText;
-            if (heroSubtext && theme.heroSubtext) heroSubtext.textContent = theme.heroSubtext;
+  function openDrawer() {
+    toggle.classList.add('active');
+    drawer.classList.add('active');
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
 
-            // Update Hero Buttons
-            const heroLivestreamBtn = document.getElementById('heroLivestreamBtn');
-            const heroGiveOnlineBtn = document.getElementById('heroGiveOnlineBtn');
-            if (heroLivestreamBtn) {
-                if (theme.heroBtn1Text) heroLivestreamBtn.textContent = theme.heroBtn1Text;
-                if (theme.heroBtn1Link) {
-                    heroLivestreamBtn.href = theme.heroBtn1Link;
-                } else if (theme.livestreamUrl) {
-                    heroLivestreamBtn.href = theme.livestreamUrl;
-                }
-            }
-            if (heroGiveOnlineBtn) {
-                if (theme.heroBtn2Text) heroGiveOnlineBtn.textContent = theme.heroBtn2Text;
-                if (theme.heroBtn2Link) heroGiveOnlineBtn.href = theme.heroBtn2Link;
-            }
-            
-            // Update section backgrounds
-            const sermonSections = document.querySelectorAll('.sermon-teaser, #sermonHeader');
-            if (sermonSections.length > 0) {
-                sermonSections.forEach(sec => {
-                    const bgType = theme.sermonBgType || 'image';
-                    if (bgType === 'color' && theme.sermonBgColor) {
-                        sec.style.cssText += `; background: ${theme.sermonBgColor} !important; background-image: none !important;`;
-                    } else if (bgType === 'gradient' && theme.sermonBgGradient) {
-                        sec.style.cssText += `; background: ${theme.sermonBgGradient} !important; background-image: none !important;`;
-                    } else {
-                        const bgUrl = theme.sermonBackground || theme.sermonBgImage || 'https://images.unsplash.com/photo-1438032005730-c779502df39b?w=1600&q=80';
-                        sec.style.cssText += `; background-image: url('${bgUrl}') !important; background-repeat: no-repeat !important; background-size: cover !important; background-position: center !important;`;
-                    }
-                });
-            }
+  function closeDrawer() {
+    toggle.classList.remove('active');
+    drawer.classList.remove('active');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
 
-            const testimoniesSection = document.querySelector('.testimonies-section');
-            if (testimoniesSection && theme.testimonyBackground) {
-                testimoniesSection.style.cssText += `; background-image: url('${theme.testimonyBackground}') !important;`;
-            }
+  toggle.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (drawer.classList.contains('active')) {
+      closeDrawer();
+    } else {
+      openDrawer();
+    }
+  });
 
-            // Update Join Family section styling and links
-            const joinFamilySection = document.getElementById('join-family-section');
-            if (joinFamilySection) {
-                const bgType = theme.joinFamilyBgType || 'color';
-                if (bgType === 'color' && theme.joinFamilyBgColor) {
-                    joinFamilySection.style.cssText += `; background: ${theme.joinFamilyBgColor} !important; background-image: none !important;`;
-                } else if (bgType === 'gradient' && theme.joinFamilyBgGradient) {
-                    joinFamilySection.style.cssText += `; background: ${theme.joinFamilyBgGradient} !important; background-image: none !important;`;
-                } else if (bgType === 'image' && theme.joinFamilyBgImage) {
-                    joinFamilySection.style.cssText += `; background-image: url('${theme.joinFamilyBgImage}') !important; background-repeat: no-repeat !important; background-size: cover !important; background-position: center !important; background-color: transparent !important;`;
-                } else {
-                    // Default fallback
-                    joinFamilySection.style.cssText += `; background: #0b1329 !important; background-image: none !important;`;
-                }
+  overlay.addEventListener('click', closeDrawer);
 
-                // Update Join Family Tag, Title, and Subtext
-                const joinFamilyTag = document.getElementById('joinFamilyTag');
-                const joinFamilyTitle = document.getElementById('joinFamilyTitle');
-                const joinFamilySubtext = document.getElementById('joinFamilySubtext');
-                
-                if (joinFamilyTag && theme.joinFamilyTag) joinFamilyTag.textContent = theme.joinFamilyTag;
-                if (joinFamilyTitle && theme.joinFamilyTitle) joinFamilyTitle.textContent = theme.joinFamilyTitle;
-                if (joinFamilySubtext && theme.joinFamilySubtext) joinFamilySubtext.textContent = theme.joinFamilySubtext;
-            }
+  // Close on drawer link click
+  var drawerLinks = drawer.querySelectorAll('a');
+  drawerLinks.forEach(function(link) {
+    link.addEventListener('click', closeDrawer);
+  });
 
-            const joinFellowshipBtn = document.getElementById('joinFellowshipBtn');
-            const joinNextStepsBtn = document.getElementById('joinNextStepsBtn');
-            const joinServeBtn = document.getElementById('joinServeBtn');
+  // ESC key closes drawer
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && drawer.classList.contains('active')) {
+      closeDrawer();
+    }
+  });
+}
 
-            if (joinFellowshipBtn) {
-                joinFellowshipBtn.href = theme.joinFamilyFellowshipLink || '#contact';
-            }
-            if (joinNextStepsBtn) {
-                joinNextStepsBtn.href = theme.joinFamilyNextStepsLink || '#contact';
-            }
-            if (joinServeBtn) {
-                joinServeBtn.href = theme.joinFamilyServeLink || '#ministries-serve';
-            }
+// ── 8. Intersection Observer Reveal System ───────────────────
 
-            // Update social media links
-            const socials = [
-                { id: 'facebook', url: theme.socialFacebook, icon: 'facebook' },
-                { id: 'instagram', url: theme.socialInstagram, icon: 'instagram' },
-                { id: 'twitter', url: theme.socialTwitter, icon: 'twitter' },
-                { id: 'youtube', url: theme.socialYoutube, icon: 'youtube' }
-            ].filter(s => s.url);
+function setupRevealObserver() {
+  var revealSelector = '[data-reveal], [data-reveal="fade-up"], [data-reveal="fade-left"], [data-reveal="fade-right"], [data-reveal="zoom"]';
 
-            const renderSocials = (container) => {
-                if (!container) return;
-                container.innerHTML = '';
-                if (socials.length === 0) {
-                    container.style.display = 'none';
-                    return;
-                }
-                container.style.display = 'flex';
-                
-                socials.forEach(s => {
-                    const a = document.createElement('a');
-                    a.href = s.url;
-                    a.target = '_blank';
-                    a.rel = 'noopener noreferrer';
-                    a.className = 'nav-social-link';
-                    a.style.cssText = 'color: var(--text-muted); transition: var(--transition); display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.03);';
-                    a.innerHTML = `<i data-lucide="${s.icon}" style="width: 18px; height: 18px;"></i>`;
-                    
-                    // Add hover interactions
-                    a.addEventListener('mouseenter', () => {
-                        a.style.color = 'var(--primary-color)';
-                        a.style.background = 'rgba(var(--primary-rgb), 0.08)';
-                        a.style.transform = 'translateY(-2px)';
-                    });
-                    a.addEventListener('mouseleave', () => {
-                        a.style.color = 'var(--text-muted)';
-                        a.style.background = 'rgba(0,0,0,0.03)';
-                        a.style.transform = 'none';
-                    });
-                    
-                    container.appendChild(a);
-                });
-            };
+  var revealObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('revealed');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
 
-            const desktopContainer = document.getElementById('navSocialsDesktop');
-            const mobileContainer = document.getElementById('navSocialsMobile');
-            const mobileItem = document.getElementById('navSocialsMobileItem');
+  document.querySelectorAll(revealSelector).forEach(function(el) {
+    revealObserver.observe(el);
+  });
 
-            if (desktopContainer) renderSocials(desktopContainer);
-            if (mobileContainer) renderSocials(mobileContainer);
+  // Stagger containers
+  var staggerSelector = '[data-reveal-stagger]';
+  var staggerObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('revealed');
+        staggerObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
 
-            if (mobileItem) {
-                if (socials.length > 0) {
-                    mobileItem.style.display = 'flex';
-                } else {
-                    mobileItem.style.display = 'none';
-                }
-            }
-            
-            // Apply design variables
-            if (theme.primaryColor) document.documentElement.style.setProperty('--primary-color', theme.primaryColor);
-            if (theme.primaryHover) document.documentElement.style.setProperty('--primary-hover', theme.primaryHover);
-            if (theme.borderRadius) {
-                document.documentElement.style.setProperty('--radius-md', theme.borderRadius + 'px');
-                document.documentElement.style.setProperty('--radius-lg', (theme.borderRadius * 1.5) + 'px');
-            }
-            if (theme.sectionSpacing) document.documentElement.style.setProperty('--section-spacing', theme.sectionSpacing + 'rem');
-            if (theme.fontSizeBase) document.documentElement.style.setProperty('--font-size-base', theme.fontSizeBase + 'px');
+  document.querySelectorAll(staggerSelector).forEach(function(el) {
+    staggerObserver.observe(el);
+  });
+}
 
-            // Apply dark mode if set (strictly controlled by admin settings)
-            if (theme.mode === 'dark') {
-                document.body.classList.add('dark-mode');
+// ── 9. Image Pop-In Observer ────────────────────────────────
+
+function setupImagePopIn() {
+  function markLoaded(img) {
+    if (img.complete && img.naturalHeight > 0) {
+      img.classList.add('img-loaded');
+    }
+  }
+
+  // Handle all existing images
+  document.querySelectorAll('img').forEach(function(img) {
+    if (img.complete) {
+      markLoaded(img);
+    } else {
+      img.addEventListener('load', function() { this.classList.add('img-loaded'); });
+      img.addEventListener('error', function() {
+        // Still show broken images so layout doesn't break
+        this.classList.add('img-loaded');
+      });
+    }
+  });
+
+  // MutationObserver for dynamically added images
+  var imageObserver = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      mutation.addedNodes.forEach(function(node) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          // If the node itself is an img
+          if (node.tagName === 'IMG') {
+            if (node.complete) {
+              markLoaded(node);
             } else {
-                document.body.classList.remove('dark-mode');
+              node.addEventListener('load', function() { this.classList.add('img-loaded'); });
+              node.addEventListener('error', function() { this.classList.add('img-loaded'); });
             }
-
-            // Trigger Hero entrance animation
-            setTimeout(() => {
-                const heroSec = document.getElementById('home') || document.querySelector('.hero');
-                heroSec?.classList.add('hero-ready');
-            }, 100);
-            
-            // Initialize Reveal Animations
-            setupRevealAnimations();
-        }
-    } catch (error) {
-        console.error('Error loading theme settings:', error.message || String(error));
-    }
-}
-
-function setupRevealAnimations() {
-    // If we've already set up the dual observers, just run a fresh scan
-    if (window.revealObserverInstance) {
-        scanAndObserve();
-        return;
-    }
-
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -40px 0px'
-    };
-
-    const revealObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('revealed');
-                revealObserver.unobserve(entry.target);
-            }
-        });
-    }, observerOptions);
-
-    window.revealObserverInstance = revealObserver;
-
-    // Perform initial scan
-    scanAndObserve();
-
-    // Setup Mutation Observer to auto-observe any newly appended dynamic content from Firestore
-    const mutationObserver = new MutationObserver((mutations) => {
-        let hasNewElements = false;
-        mutations.forEach(mutation => {
-            if (mutation.addedNodes.length) {
-                mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        if (node.hasAttribute('data-reveal') || 
-                            node.hasAttribute('data-reveal-stagger') || 
-                            node.querySelector('[data-reveal], [data-reveal-stagger]')) {
-                            hasNewElements = true;
-                        }
-                    }
-                });
-            }
-        });
-
-        if (hasNewElements) {
-            scanAndObserve();
-        }
-    });
-
-    mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-}
-
-function scanAndObserve() {
-    const observer = window.revealObserverInstance;
-    if (!observer) return;
-
-    // Enable dynamic child staggering automatically for stagger groups
-    document.querySelectorAll('[data-reveal-stagger]').forEach(parent => {
-        const targets = parent.querySelectorAll('.card, .about-item, .offering-card, .service-card, .sermon-card, .event-poster-item, .moment-slide, .testimony-slide, .video-card, .pillar-card');
-        targets.forEach((child, index) => {
-            if (!child.hasAttribute('data-reveal')) {
-                child.setAttribute('data-reveal', 'fade-up');
-            }
-            child.style.transitionDelay = `${index * 80}ms`;
-        });
-    });
-
-    // Register all elements with the IntersectionObserver
-    document.querySelectorAll('[data-reveal], [data-reveal-stagger]').forEach(el => {
-        if (!el.classList.contains('revealed')) {
-            observer.observe(el);
-        }
-    });
-}
-
-// Global Image Fast Loading Fade-In Utility
-function setupImagePerformanceBooster() {
-    // Hook loaded states for globally generated or static images
-    document.addEventListener('load', (e) => {
-        if (e.target.tagName === 'IMG') {
-            e.target.classList.remove('loading');
-            e.target.classList.add('loaded');
-        }
-    }, true);
-
-    // Bootstrap current state of statically declared icons or logos
-    document.querySelectorAll('img').forEach(img => {
-        // Tag with standard performance parameters
-        if (!img.hasAttribute('loading')) {
-            img.setAttribute('loading', 'lazy');
-        }
-        if (!img.hasAttribute('decoding')) {
-            img.setAttribute('decoding', 'async');
-        }
-
-        const hasRealSrc = img.src && !img.src.endsWith('.html') && !img.src.endsWith('/') && img.getAttribute('src') !== "";
-        if (hasRealSrc && img.complete) {
-            img.classList.add('loaded');
-        } else {
-            img.classList.add('loading');
-        }
-    });
-}
-
-// ========================================
-// About Content
-// ========================================
-
-async function loadAboutContent() {
-    try {
-        const doc = await safeGet(db.collection(Collections.CONTENT).doc('about'));
-        if (doc && doc.exists) {
-            const content = doc.data();
-            
-            const aboutTag = document.getElementById('aboutTag');
-            const aboutTitle = document.getElementById('aboutTitle');
-            const aboutButton = document.getElementById('aboutButton');
-            
-            const missionText = document.getElementById('missionText');
-            const visionText = document.getElementById('visionText');
-            const welcomeText = document.getElementById('welcomeText');
-            
-            const missionImg = document.getElementById('missionImage');
-            const visionImg = document.getElementById('visionImage');
-            const welcomeImg = document.getElementById('welcomeImage');
-            
-            const DEFAULT_CHURCH_IMG = 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=1200&q=80';
-
-            if (aboutTag && content.tag) aboutTag.textContent = content.tag;
-            if (aboutTitle && content.title) aboutTitle.textContent = content.title;
-            
-            if (aboutButton) {
-                if (content.buttonText) {
-                    aboutButton.innerHTML = `${content.buttonText} <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>`;
-                    if (window.lucide) {
-                        window.lucide.createIcons();
-                    }
-                }
-                if (content.buttonLink) {
-                    aboutButton.href = content.buttonLink;
-                }
-            }
-
-            if (missionText && content.mission) missionText.textContent = content.mission;
-            if (visionText && content.vision) visionText.textContent = content.vision;
-            if (welcomeText && content.welcomeMessage) welcomeText.textContent = content.welcomeMessage;
-            
-            if (missionImg) {
-                missionImg.classList.remove('loaded');
-                missionImg.classList.add('loading');
-                missionImg.src = content.missionImage || DEFAULT_CHURCH_IMG;
-            }
-            if (visionImg) {
-                visionImg.classList.remove('loaded');
-                visionImg.classList.add('loading');
-                visionImg.src = content.visionImage || DEFAULT_CHURCH_IMG;
-            }
-            if (welcomeImg) {
-                welcomeImg.classList.remove('loaded');
-                welcomeImg.classList.add('loading');
-                welcomeImg.src = content.welcomeImage || DEFAULT_CHURCH_IMG;
-            }
-        }
-    } catch (error) {
-        console.error('Error loading about content:', error.message || String(error));
-    }
-}
-
-// ========================================
-// Daily Quotes
-// ========================================
-
-async function loadQuotes() {
-    try {
-        const container = document.getElementById('quoteContainer');
-        if (!container) return;
-
-        // Fetch all quotes ordered by date to avoid composite index requirement
-        const snapshot = await safeList(db.collection(Collections.QUOTES)
-            .orderBy('createdAt', 'desc'));
-
-        const activeQuote = snapshot ? snapshot.docs.find(doc => doc.data().active === true) : null;
-
-        if (activeQuote) {
-            const quote = activeQuote.data();
-            if (quote.type === 'image') {
-                container.innerHTML = `
-                    <div class="quote-slide">
-                        <img src="${quote.imageUrl}" class="quote-item-image loading" alt="Daily Quote" loading="lazy" decoding="async">
-                    </div>
-                `;
-            } else if (quote.type === 'both') {
-                container.innerHTML = `
-                    <div class="quote-slide">
-                        <img src="${quote.imageUrl}" class="quote-item-image loading" alt="Daily Quote" style="margin-bottom: 2rem;" loading="lazy" decoding="async">
-                        <blockquote>"${quote.text}"</blockquote>
-                        ${quote.author ? `<cite>— ${quote.author}</cite>` : ''}
-                    </div>
-                `;
+          }
+          // Check children for images
+          var imgs = node.querySelectorAll ? node.querySelectorAll('img') : [];
+          imgs.forEach(function(img) {
+            if (img.complete) {
+              markLoaded(img);
             } else {
-                container.innerHTML = `
-                    <blockquote>"${quote.text}"</blockquote>
-                    ${quote.author ? `<cite>— ${quote.author}</cite>` : ''}
-                `;
+              img.addEventListener('load', function() { this.classList.add('img-loaded'); });
+              img.addEventListener('error', function() { this.classList.add('img-loaded'); });
             }
-        } else {
-            container.innerHTML = '<p>The word of God is a lamp unto my feet and a light unto my path.</p><cite>— Psalm 119:105</cite>';
+          });
         }
-    } catch (error) {
-        console.error('Error loading quotes:', error.message || String(error));
-    }
-}
-
-// ========================================
-// Service Times
-// ========================================
-
-async function loadServiceTimes() {
-    try {
-        const doc = await safeGet(db.collection(Collections.SERVICES).doc('schedule'));
-        if (doc && doc.exists) {
-            const schedule = doc.data();
-            
-            // Update Sunday services
-            for (let i = 1; i <= 4; i++) {
-                const key = `sunday${i}`;
-                if (schedule[key]) {
-                    const card = document.getElementById(`sundayService${i}`);
-                    if (card) {
-                        card.querySelector('.service-title').textContent = schedule[key].title;
-                        card.querySelector('.service-time').textContent = schedule[key].time;
-                        card.querySelector('.service-description').textContent = schedule[key].description;
-                    }
-                }
-            }
-            
-            // Update midweek service
-            if (schedule.midweek) {
-                const midweekCard = document.getElementById('midweekService');
-                if (midweekCard) {
-                    midweekCard.querySelector('.service-title').textContent = schedule.midweek.title;
-                    midweekCard.querySelector('.service-time').textContent = schedule.midweek.time;
-                    midweekCard.querySelector('.service-description').textContent = schedule.midweek.description;
-                }
-            }
-            
-            // Update special service
-            if (schedule.special) {
-                const specialCard = document.getElementById('specialService');
-                if (specialCard) {
-                    specialCard.querySelector('.service-title').textContent = schedule.special.title;
-                    specialCard.querySelector('.service-time').textContent = schedule.special.time;
-                    specialCard.querySelector('.service-description').textContent = schedule.special.description;
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Error loading service times:', error.message || String(error));
-    }
-}
-
-// ========================================
-// Sermons
-// ========================================
-
-async function loadSermons() {
-    try {
-        const sermonsGrid = document.getElementById('sermonsGrid');
-        const sermonsEmpty = document.getElementById('sermonsEmpty');
-        const searchBox = document.getElementById('sermonsSearch');
-        
-        if (!sermonsGrid || !sermonsEmpty) return;
-
-        // On sermons.html page, load all. On index.html, it's a teaser anyway.
-        const isFullPage = window.location.pathname.includes('sermons.html');
-        
-        let query = db.collection(Collections.SERMONS).orderBy('date', 'desc');
-        if (!isFullPage) {
-            query = query.limit(6);
-        } else {
-            if (searchBox) searchBox.style.display = 'block';
-        }
-
-        const snapshot = await safeList(query);
-        
-        if (snapshot && !snapshot.empty) {
-            sermonsEmpty.style.display = 'none';
-            sermonsGrid.innerHTML = '';
-            
-            snapshot.forEach(doc => {
-                const sermon = doc.data();
-                const card = createSermonCard(sermon);
-                sermonsGrid.appendChild(card);
-            });
-
-            if (isFullPage) {
-                setupSermonSearch(snapshot.docs.map(doc => doc.data()));
-            }
-        } else {
-            sermonsEmpty.style.display = 'block';
-            sermonsGrid.innerHTML = '';
-        }
-    } catch (error) {
-        console.error('Error loading sermons:', error.message || String(error));
-    }
-}
-
-function setupSermonSearch(sermons) {
-    const input = document.getElementById('sermonSearchInput');
-    if (!input) return;
-
-    input.addEventListener('input', (e) => {
-        const term = e.target.value.toLowerCase();
-        const grid = document.getElementById('sermonsGrid');
-        if (!grid) return;
-
-        grid.innerHTML = '';
-        const filtered = sermons.filter(s => 
-            s.title.toLowerCase().includes(term) || 
-            (s.description && s.description.toLowerCase().includes(term))
-        );
-
-        if (filtered.length > 0) {
-            filtered.forEach(s => grid.appendChild(createSermonCard(s)));
-        } else {
-            // Show empty state or message
-        }
+      });
     });
+  });
+
+  imageObserver.observe(document.body, { childList: true, subtree: true });
 }
 
-function createSermonCard(sermon) {
-    const card = document.createElement('div');
-    card.className = 'card sermon-card';
-    
-    const videoId = extractYouTubeId(sermon.videoUrl);
-    
-    card.innerHTML = `
-        <div class="sermon-video">
-            <iframe 
-                src="https://www.youtube.com/embed/${videoId}" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowfullscreen>
-            </iframe>
-        </div>
-        <div class="sermon-info">
-            <h3 class="sermon-title">${sermon.title}</h3>
-            <div class="sermon-date">${formatDate(sermon.date)}</div>
-            ${sermon.description ? `<p class="sermon-description">${sermon.description}</p>` : ''}
-        </div>
-    `;
-    
-    return card;
-}
+// ── 10. Hero Section Loader ──────────────────────────────────
 
-function extractYouTubeId(url) {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : '';
-}
+function loadHero() {
+  safeGet('content', 'hero').then(function(data) {
+    if (!data) return;
 
-// ========================================
-// Events
-// ========================================
-
-let currentEventSlide = 0;
-let eventSlidesCount = 0;
-let eventSliderInterval = null;
-
-async function loadEvents() {
-    try {
-        const eventsGrid = document.getElementById('eventsGrid');
-        const eventsSlider = document.getElementById('eventsPosterSlider');
-        
-        if (!eventsGrid || !eventsSlider) return;
-
-        const snapshot = await safeList(db.collection(Collections.EVENTS)
-            .orderBy('date', 'asc'));
-        
-        if (snapshot && !snapshot.empty) {
-            eventsGrid.innerHTML = '';
-            
-            const events = [];
-            snapshot.forEach(doc => events.push(doc.data()));
-            eventSlidesCount = events.length;
-            
-            events.forEach((event) => {
-                const card = createEventCard(event);
-                eventsGrid.appendChild(card);
-            });
-
-            setupEventSlider();
-            if (window.lucide) {
-                lucide.createIcons();
-            }
-        } else {
-            eventsGrid.innerHTML = '<div class="event-poster-item"><img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=800&q=80" alt="No Events"></div>';
-        }
-    } catch (error) {
-        console.error('Error loading events:', error.message || String(error));
+    // Background image
+    if (data.backgroundImage) {
+      var heroBg = document.querySelector('.hero-bg');
+      if (heroBg) {
+        heroBg.style.backgroundImage = 'url(' + data.backgroundImage + ')';
+      }
     }
-}
 
-function setupEventSlider() {
-    const prevBtn = document.getElementById('eventPrev');
-    const nextBtn = document.getElementById('eventNext');
-    
-    if (prevBtn) prevBtn.onclick = () => {
-        moveEventSlide(-1);
-        resetEventInterval();
-    };
-    if (nextBtn) nextBtn.onclick = () => {
-        moveEventSlide(1);
-        resetEventInterval();
-    };
-    
-    resetEventInterval();
-}
-
-function resetEventInterval() {
-    if (eventSliderInterval) clearInterval(eventSliderInterval);
-    eventSliderInterval = setInterval(() => moveEventSlide(1), 5000);
-}
-
-function moveEventSlide(direction) {
-    currentEventSlide = (currentEventSlide + direction + eventSlidesCount) % eventSlidesCount;
-    updateEventSlider();
-}
-
-function goToEventSlide(index) {
-    currentEventSlide = index;
-    updateEventSlider();
-}
-
-function updateEventSlider() {
-    const track = document.getElementById('eventsGrid');
-    
-    if (track) {
-        track.style.transform = `translateX(-${currentEventSlide * 100}%)`;
+    // Headline
+    if (data.headline) {
+      var headline = document.querySelector('.hero-content h1');
+      if (headline) headline.textContent = data.headline;
     }
-}
 
-function createEventCard(event) {
-    const card = document.createElement('div');
-    card.className = 'event-poster-item';
-    
-    card.innerHTML = `
-        <img class="loading" src="${event.imageUrl}" alt="${event.title}" referrerPolicy="no-referrer" loading="lazy" decoding="async">
-    `;
-    
-    return card;
-}
-
-// ========================================
-// Moments
-// ========================================
-
-let currentMomentSlide = 0;
-let momentSlidesCount = 0;
-let momentSliderInterval = null;
-
-async function loadMoments() {
-    try {
-        const photosTrack = document.getElementById('photosTrack');
-        const videosTrack = document.getElementById('videosTrack');
-        const momentDots = document.getElementById('momentDots');
-        
-        if (!photosTrack || !videosTrack) return;
-
-        const snapshot = await safeList(db.collection(Collections.MOMENTS)
-            .orderBy('createdAt', 'desc'));
-        
-        const photos = [];
-        const videos = [];
-        
-        if (snapshot) {
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                if (data.type === 'photo') photos.push(data);
-                else if (data.type === 'video') videos.push(data);
-            });
-        }
-
-        // Load Photos
-        if (photos.length > 0) {
-            photosTrack.innerHTML = '';
-            momentDots.innerHTML = '';
-            momentSlidesCount = photos.length;
-            
-            photos.forEach((photo, index) => {
-                const slide = document.createElement('div');
-                slide.className = 'moment-slide';
-                slide.innerHTML = `
-                    <img class="loading" src="${photo.url}" alt="${photo.title || ''}" referrerPolicy="no-referrer" loading="lazy" decoding="async">
-                    ${(photo.title || photo.description) ? `
-                        <div class="moment-info">
-                            ${photo.title ? `<h3>${photo.title}</h3>` : ''}
-                            ${photo.description ? `<p>${photo.description}</p>` : ''}
-                        </div>
-                    ` : ''}
-                `;
-                photosTrack.appendChild(slide);
-                
-                const dot = document.createElement('button');
-                dot.className = `slider-dot ${index === 0 ? 'active' : ''}`;
-                dot.onclick = () => goToMomentSlide(index);
-                momentDots.appendChild(dot);
-            });
-            setupMomentSlider();
-        }
-
-        // Load Videos
-        if (videos.length > 0) {
-            videosTrack.innerHTML = '';
-            videos.forEach(video => {
-                const card = document.createElement('div');
-                card.className = 'video-card';
-                card.innerHTML = `
-                    <a href="${video.url}" target="_blank" class="video-thumb">
-                        <i data-lucide="play-circle"></i>
-                    </a>
-                    <div class="video-content">
-                        <h3>${video.title || 'Church Moment'}</h3>
-                    </div>
-                `;
-                videosTrack.appendChild(card);
-            });
-            if (window.lucide) lucide.createIcons();
-        }
-    } catch (error) {
-        console.error('Error loading moments:', error.message || String(error));
+    // Subtitle
+    if (data.subtitle) {
+      var subtitle = document.querySelector('.hero-content .subtitle');
+      if (subtitle) subtitle.textContent = data.subtitle;
     }
+
+    // Service time badge
+    if (data.serviceTime) {
+      var badge = document.querySelector('.hero-badge span');
+      if (badge) badge.textContent = data.serviceTime;
+    }
+
+    // Watch live URL
+    if (data.watchLiveUrl) {
+      var liveBtn = document.querySelector('.hero-actions .live-btn, .hero-actions a[href*="watch"]');
+      if (liveBtn) liveBtn.href = data.watchLiveUrl;
+    }
+  }).catch(function() {});
 }
 
-function setupMomentsTabs() {
-    const tabs = document.querySelectorAll('.moment-tab');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            
-            const type = tab.dataset.type;
-            document.querySelectorAll('.moments-gallery').forEach(g => g.classList.remove('active'));
-            document.getElementById(`${type}Gallery`).classList.add('active');
-        });
+// ── 11. Services Loader ───────────────────────────────────────
+
+function loadServices() {
+  safeGet('services', 'schedule').then(function(data) {
+    if (!data || !data.items || !data.items.length) return;
+
+    var grid = document.getElementById('servicesGrid');
+    if (!grid) return;
+
+    var html = '';
+    data.items.forEach(function(item) {
+      html += '<div class="service-card">' +
+        '<div class="service-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>' +
+        '<h3>' + escapeHtml(item.title || 'Service') + '</h3>' +
+        (item.time ? '<p class="time">' + escapeHtml(item.time) + '</p>' : '') +
+        (item.location ? '<p class="location">' + escapeHtml(item.location) + '</p>' : '') +
+        (item.description ? '<p>' + escapeHtml(item.description) + '</p>' : '') +
+        '</div>';
     });
+
+    grid.innerHTML = html;
+    // Re-observe newly added elements for reveal
+    setupImagePopIn();
+  }).catch(function() {});
 }
 
-function setupMomentSlider() {
-    const prevBtn = document.getElementById('momentPrev');
-    const nextBtn = document.getElementById('momentNext');
-    
-    if (prevBtn) prevBtn.onclick = () => {
-        moveMomentSlide(-1);
-        resetMomentInterval();
-    };
-    if (nextBtn) nextBtn.onclick = () => {
-        moveMomentSlide(1);
-        resetMomentInterval();
-    };
-    
-    resetMomentInterval();
-}
+// ── 12. Sermons Section ──────────────────────────────────────
 
-function resetMomentInterval() {
-    if (momentSliderInterval) clearInterval(momentSliderInterval);
-    momentSliderInterval = setInterval(() => moveMomentSlide(1), 6000);
-}
+var currentSermonFilter = 'all';
+var allSermons = [];
 
-function moveMomentSlide(direction) {
-    if (momentSlidesCount === 0) return;
-    currentMomentSlide = (currentMomentSlide + direction + momentSlidesCount) % momentSlidesCount;
-    updateMomentSlider();
-}
+function loadSermons() {
+  safeList('sermons', 'date', 12).then(function(sermons) {
+    if (!sermons || !sermons.length) return;
+    allSermons = sermons;
+    renderSermons('all');
 
-function goToMomentSlide(index) {
-    currentMomentSlide = index;
-    updateMomentSlider();
-    resetMomentInterval();
-}
-
-function updateMomentSlider() {
-    const track = document.getElementById('photosTrack');
-    const dots = document.querySelectorAll('#momentDots .slider-dot');
-    
-    if (track) {
-        track.style.transform = `translateX(-${currentMomentSlide * 100}%)`;
-    }
-    
-    dots.forEach((dot, index) => {
-        dot.classList.toggle('active', index === currentMomentSlide);
+    // Set up filter buttons
+    var filterBtns = document.querySelectorAll('.sermon-filters .filter-btn');
+    filterBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var filter = this.getAttribute('data-filter') || 'all';
+        currentSermonFilter = filter;
+        filterBtns.forEach(function(b) { b.classList.remove('active'); });
+        this.classList.add('active');
+        renderSermons(filter);
+      });
     });
+  }).catch(function() {});
 }
 
-// ========================================
-// Testimonies
-// ========================================
+function renderSermons(filter) {
+  var grid = document.getElementById('sermonsGrid');
+  if (!grid) return;
 
-let currentTestimonySlide = 0;
-let testimonySlidesCount = 0;
+  var filtered = filter === 'all'
+    ? allSermons
+    : allSermons.filter(function(s) { return s.type === filter; });
 
-async function loadTestimonies() {
-    try {
-        const testimoniesGrid = document.getElementById('testimoniesGrid');
-        const testimoniesEmpty = document.getElementById('testimoniesEmpty');
-        
-        if (!testimoniesGrid || !testimoniesEmpty) return;
+  if (!filtered.length) {
+    grid.innerHTML = '<p style="text-align:center;color:var(--text-light);padding:40px;">No sermons found.</p>';
+    return;
+  }
 
-        // Fetch testimonies and filter in memory to avoid composite index requirement
-        const snapshot = await safeList(db.collection(Collections.TESTIMONIES)
-            .orderBy('submittedAt', 'desc'));
-        
-        const approvedTestimonies = [];
-        if (snapshot) {
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                if (data.approved === true) {
-                    approvedTestimonies.push(data);
-                }
-            });
-        }
+  var html = '';
+  filtered.forEach(function(sermon) {
+    var thumbnail = sermon.thumbnail || sermon.imageUrl || '';
+    var typeLabel = sermon.type || 'video';
+    var typeIcon = typeLabel === 'audio' ? '&#9835;' : typeLabel === 'notes' ? '&#128196;' : '&#9654;';
 
-        if (approvedTestimonies.length > 0) {
-            testimoniesEmpty.style.display = 'none';
-            testimoniesGrid.innerHTML = '';
-            testimonySlidesCount = approvedTestimonies.length;
-            
-            // Safe initials picker
-            const getNameInitials = (fullName) => {
-                if (!fullName) return 'SM';
-                const parts = fullName.trim().split(/\s+/);
-                if (parts.length >= 2) {
-                    return (parts[0][0] + parts[1][0]).toUpperCase().slice(0, 2);
-                }
-                return parts[0].slice(0, 2).toUpperCase();
-            };
+    html += '<div class="sermon-card" data-type="' + escapeHtml(typeLabel) + '">' +
+      (thumbnail
+        ? '<div class="sermon-thumb"><img src="' + escapeHtml(thumbnail) + '" alt="' + escapeHtml(sermon.title || 'Sermon') + '" loading="lazy"><div class="play-btn">' + typeIcon + '</div></div>'
+        : '<div class="sermon-thumb sermons-placeholder"><div class="play-btn">' + typeIcon + '</div></div>'
+      ) +
+      '<div class="sermon-info">' +
+        '<h3>' + escapeHtml(sermon.title || 'Untitled Sermon') + '</h3>' +
+        '<div class="sermon-meta">' +
+          '<span>' + escapeHtml(sermon.speaker || '') + '</span>' +
+          '<span>' + formatDate(sermon.date) + '</span>' +
+        '</div>' +
+        '<div class="sermon-actions">' +
+          (sermon.videoUrl ? '<button class="btn btn-sm play-sermon-btn" data-video="' + escapeHtml(sermon.videoUrl) + '">Watch</button>' : '') +
+          (sermon.audioUrl ? '<button class="btn btn-sm play-sermon-btn" data-audio="' + escapeHtml(sermon.audioUrl) + '">Listen</button>' : '') +
+          (sermon.notesUrl ? '<a href="' + escapeHtml(sermon.notesUrl) + '" class="btn btn-sm" target="_blank" rel="noopener">Notes</a>' : '') +
+        '</div>' +
+      '</div>' +
+      '</div>';
+  });
 
-            // Deterministic gradient picker
-            const getPremiumGradient = (fullName) => {
-                const charCode = fullName && fullName.length > 0 ? fullName.charCodeAt(0) : 65;
-                const colors = [
-                    'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',   // Primary to Secondary
-                    'linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)',   // Spark Pink to Rose
-                    'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',   // Cyan to Indigo
-                    'linear-gradient(135deg, #f59e0b 0%, #ec4899 100%)',   // Amber to Pink
-                    'linear-gradient(135deg, #10b981 0%, #059669 100%)'    // Emerald to Forest
-                ];
-                return colors[charCode % colors.length];
-            };
+  grid.innerHTML = html;
+  setupImagePopIn();
 
-            approvedTestimonies.forEach(testimony => {
-                const slide = document.createElement('div');
-                slide.className = 'testimony-slide';
-                
-                const initials = getNameInitials(testimony.name);
-                const bgGradient = getPremiumGradient(testimony.name);
-
-                slide.innerHTML = `
-                    <div class="testimony-glass-card">
-                        <div class="testimony-card-header">
-                            <span class="testimony-card-badge">
-                                <i data-lucide="sparkles"></i> Praise Report
-                            </span>
-                            <div class="testimony-card-quote">
-                                <i data-lucide="quote"></i>
-                            </div>
-                        </div>
-                        <div class="testimony-card-body">
-                            <p class="testimony-text">"${testimony.message}"</p>
-                        </div>
-                        <div class="testimony-card-footer">
-                            <div class="testimony-profile">
-                                <div class="testimony-avatar" style="background: ${bgGradient};">
-                                    <span>${initials}</span>
-                                </div>
-                                <div class="testimony-info">
-                                    <h4 class="testimony-name">${testimony.name}</h4>
-                                    <p class="testimony-meta">
-                                        <i data-lucide="badge-check"></i> Verified Blessing
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                testimoniesGrid.appendChild(slide);
-            });
-            
-            // Re-initialize Lucide icons for the new content
-            if (window.lucide) {
-                window.lucide.createIcons();
-            }
-            
-            setupTestimonySlider();
-        } else {
-            testimoniesEmpty.style.display = 'block';
-            testimoniesGrid.innerHTML = '';
-        }
-    } catch (error) {
-        console.error('Error loading testimonies:', error.message || String(error));
-    }
-}
-
-function setupTestimonySlider() {
-    const prevBtn = document.getElementById('testimonyPrev');
-    const nextBtn = document.getElementById('testimonyNext');
-    const dotsContainer = document.getElementById('testimonyDots');
-    let testimonyInterval;
-
-    // Create slider indication dots
-    if (dotsContainer) {
-        dotsContainer.innerHTML = '';
-        for (let i = 0; i < testimonySlidesCount; i++) {
-            const dot = document.createElement('button');
-            dot.className = `slider-dot ${i === 0 ? 'active' : ''}`;
-            dot.setAttribute('aria-label', `Go to testimony stage ${i + 1}`);
-            dot.onclick = () => {
-                currentTestimonySlide = i;
-                updateTestimonySlider();
-                startAutoSlide();
-            };
-            dotsContainer.appendChild(dot);
-        }
-    }
-
-    const startAutoSlide = () => {
-        if (testimonyInterval) clearInterval(testimonyInterval);
-        testimonyInterval = setInterval(() => {
-            moveTestimonySlide(1);
-        }, 12000); // Friendly read time of 12s per testimony
-    };
-
-    if (prevBtn) prevBtn.onclick = () => {
-        moveTestimonySlide(-1);
-        startAutoSlide();
-    };
-    if (nextBtn) nextBtn.onclick = () => {
-        moveTestimonySlide(1);
-        startAutoSlide();
-    };
-
-    startAutoSlide();
-}
-
-function moveTestimonySlide(direction) {
-    if (testimonySlidesCount === 0) return;
-    currentTestimonySlide = (currentTestimonySlide + direction + testimonySlidesCount) % testimonySlidesCount;
-    updateTestimonySlider();
-}
-
-function updateTestimonySlider() {
-    const track = document.getElementById('testimoniesGrid');
-    if (track) {
-        track.style.transform = `translateX(-${currentTestimonySlide * 100}%)`;
-    }
-    
-    // Update active state on progress dots
-    const dots = document.querySelectorAll('#testimonyDots .slider-dot');
-    dots.forEach((dot, index) => {
-        dot.classList.toggle('active', index === currentTestimonySlide);
+  // Wire sermon play buttons to video modal
+  grid.querySelectorAll('.play-sermon-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var videoUrl = this.getAttribute('data-video');
+      var audioUrl = this.getAttribute('data-audio');
+      openVideoModal(videoUrl || null, audioUrl || null);
     });
+  });
 }
 
-// ========================================
-// Contact Info
-// ========================================
+function openVideoModal(videoUrl, audioUrl) {
+  var modal = document.getElementById('videoModal');
+  if (!modal) return;
 
-async function loadContactInfo() {
-    try {
-        const doc = await safeGet(db.collection(Collections.CONTENT).doc('contact'));
-        if (doc && doc.exists) {
-            const contact = doc.data();
-            
-            const emailEl = document.getElementById('contactEmail');
-            const phoneEl = document.getElementById('contactPhone');
-            const addressEl = document.getElementById('contactAddress');
-            
-            if (emailEl && contact.email) emailEl.textContent = contact.email;
-            if (phoneEl && contact.phone) phoneEl.textContent = contact.phone;
-            if (addressEl && contact.address) addressEl.textContent = contact.address;
-        }
-    } catch (error) {
-        console.error('Error loading contact info:', error.message || String(error));
+  var embed = modal.querySelector('.video-embed');
+  if (embed) {
+    embed.innerHTML = '';
+    if (videoUrl) {
+      // Convert YouTube watch URL to embed
+      var embedUrl = videoUrl;
+      var ytMatch = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+      if (ytMatch) {
+        embedUrl = 'https://www.youtube.com/embed/' + ytMatch[1] + '?autoplay=1&rel=0';
+      }
+      embed.innerHTML = '<iframe src="' + escapeHtml(embedUrl) + '" allow="autoplay; encrypted-media" allowfullscreen title="Video"></iframe>';
+    } else if (audioUrl) {
+      embed.innerHTML = '<audio controls autoplay style="width:100%;margin-top:40px;"><source src="' + escapeHtml(audioUrl) + '">Your browser does not support audio.</audio>';
     }
-}
+  }
 
-// ========================================
-// Mobile Menu
-// ========================================
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
 
-function setupMobileMenu() {
-    const toggle = document.getElementById('mobileToggle');
-    const menu = document.getElementById('navMenu');
-    
-    if (!toggle || !menu) return;
-    
-    toggle.addEventListener('click', () => {
-        menu.classList.toggle('active');
-        const icon = toggle.querySelector('i');
-        if (menu.classList.contains('active')) {
-            icon.setAttribute('data-lucide', 'x');
-        } else {
-            icon.setAttribute('data-lucide', 'menu');
-        }
-        if (window.lucide) lucide.createIcons();
-    });
-    
-    // Close menu when clicking a link
-    menu.querySelectorAll('a').forEach(link => {
-        link.addEventListener('click', () => {
-            menu.classList.remove('active');
-            const icon = toggle.querySelector('i');
-            icon.setAttribute('data-lucide', 'menu');
-            if (window.lucide) lucide.createIcons();
-        });
-    });
-}
-
-// ========================================
-// Offering Details
-// ========================================
-
-async function loadOfferingDetails() {
-    try {
-        const doc = await safeGet(db.collection(Collections.CONTENT).doc('contact'));
-        if (doc && doc.exists) {
-            const contact = doc.data();
-            const container = document.getElementById('offeringAccounts');
-            if (!container) return;
-            
-            if (contact.offeringAccounts && contact.offeringAccounts.length > 0) {
-                container.innerHTML = contact.offeringAccounts.map((account, index) => `
-                    <div class="offering-card">
-                        <h3>${account.title || 'Offering Account'}</h3>
-                        <div class="offering-item">
-                            <h4>Bank</h4>
-                            <p>${account.bank}</p>
-                        </div>
-                        <div class="offering-item">
-                            <h4>Account Name</h4>
-                            <p>${account.accountName}</p>
-                        </div>
-                        <div class="offering-item">
-                            <h4>Account Number</h4>
-                            <div class="account-number-wrapper">
-                                <span class="account-num">${account.accountNumber}</span>
-                                <button class="btn-copy" onclick="navigator.clipboard.writeText('${account.accountNumber}'); this.classList.add('copied'); this.innerHTML='<i data-lucide=check style=width:14px;height:14px;></i> Copied!'; setTimeout(()=>{this.classList.remove('copied'); this.innerHTML='<i data-lucide=copy style=width:14px;height:14px;></i> Copy'}, 2000); if(window.lucide) lucide.createIcons();">
-                                    <i data-lucide="copy" style="width:14px; height:14px;"></i> Copy
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            } else if (contact.offeringAccount) {
-                // Fallback for old data structure
-                container.innerHTML = `
-                    <div class="offering-card">
-                        <h3>Offering Account</h3>
-                        <div class="offering-item">
-                            <h4>Bank</h4>
-                            <p>${contact.offeringAccount.bank}</p>
-                        </div>
-                        <div class="offering-item">
-                            <h4>Account Name</h4>
-                            <p>${contact.offeringAccount.accountName}</p>
-                        </div>
-                        <div class="offering-item">
-                            <h4>Account Number</h4>
-                            <div class="account-number-wrapper">
-                                <span class="account-num">${contact.offeringAccount.accountNumber}</span>
-                                <button class="btn-copy" onclick="navigator.clipboard.writeText('${contact.offeringAccount.accountNumber}'); this.classList.add('copied'); this.innerHTML='<i data-lucide=check style=width:14px;height:14px;></i> Copied!'; setTimeout(()=>{this.classList.remove('copied'); this.innerHTML='<i data-lucide=copy style=width:14px;height:14px;></i> Copy'}, 2000); if(window.lucide) lucide.createIcons();">
-                                    <i data-lucide="copy" style="width:14px; height:14px;"></i> Copy
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            if (window.lucide) {
-                lucide.createIcons();
-            }
-        }
-    } catch (error) {
-        console.error('Error loading offering details:', error.message || String(error));
+  // Close handlers
+  var closeBtn = modal.querySelector('.modal-close');
+  function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+    // Stop video/audio
+    if (embed) embed.innerHTML = '';
+  }
+  if (closeBtn) {
+    // Clone to remove any previous listeners
+    closeBtn.replaceWith(closeBtn.cloneNode(true));
+    modal.querySelector('.modal-close').addEventListener('click', closeModal);
+  }
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', function escHandler(e) {
+    if (e.key === 'Escape' && modal.classList.contains('open')) {
+      closeModal();
+      document.removeEventListener('keydown', escHandler);
     }
+  });
 }
 
-// ========================================
-// Testimony Form
-// ========================================
+// ── 13. Daily Quote Loader ──────────────────────────────────
+
+var quoteRotationTimer = null;
+var activeQuotes = [];
+var currentQuoteIndex = 0;
+
+function loadQuotes() {
+  safeQuery('quotes', 'active', '==', true).then(function(quotes) {
+    if (!quotes || !quotes.length) return;
+    activeQuotes = quotes;
+    currentQuoteIndex = 0;
+    displayQuote(0);
+
+    // Rotate quotes every 30 seconds
+    if (quotes.length > 1) {
+      if (quoteRotationTimer) clearInterval(quoteRotationTimer);
+      quoteRotationTimer = setInterval(function() {
+        currentQuoteIndex = (currentQuoteIndex + 1) % activeQuotes.length;
+        displayQuote(currentQuoteIndex);
+      }, 30000);
+    }
+  }).catch(function() {});
+}
+
+function displayQuote(index) {
+  var card = document.getElementById('quoteCard');
+  if (!card || !activeQuotes.length) return;
+
+  var q = activeQuotes[index];
+  var html = '';
+
+  if (q.type === 'image' || q.type === 'both') {
+    if (q.imageUrl) {
+      html += '<img class="quote-image" src="' + escapeHtml(q.imageUrl) + '" alt="Quote image" loading="lazy">';
+    }
+  }
+
+  if (q.type === 'text' || q.type === 'both' || !q.type) {
+    html += '<p class="quote-text">' + escapeHtml(q.text || q.quote || '') + '</p>';
+    html += '<span class="quote-author">' + escapeHtml(q.author || '') + '</span>';
+  }
+
+  card.innerHTML = html;
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(10px)';
+  requestAnimationFrame(function() {
+    card.style.transition = 'opacity 0.5s, transform 0.5s';
+    card.style.opacity = '1';
+    card.style.transform = 'translateY(0)';
+  });
+
+  setupImagePopIn();
+}
+
+// ── 14. Moments/Gallery Loader ─────────────────────────────
+
+var allMoments = [];
+var currentLightboxIndex = 0;
+
+function loadMoments() {
+  safeList('moments', 'order', 50).then(function(moments) {
+    if (!moments || !moments.length) return;
+    allMoments = moments.filter(function(m) { return m.imageUrl; });
+
+    var grid = document.getElementById('momentsGrid');
+    if (!grid) return;
+
+    var html = '';
+    allMoments.forEach(function(moment, i) {
+      html += '<div class="masonry-item" data-index="' + i + '">' +
+        '<img src="' + escapeHtml(moment.imageUrl) + '" alt="' + escapeHtml(moment.caption || moment.title || 'Moment') + '" loading="lazy">' +
+        (moment.caption || moment.title ? '<div class="caption">' + escapeHtml(moment.caption || moment.title) + '</div>' : '') +
+        '</div>';
+    });
+
+    grid.innerHTML = html;
+    setupImagePopIn();
+
+    // Lightbox click handlers
+    grid.querySelectorAll('.masonry-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        var idx = parseInt(this.getAttribute('data-index'), 10);
+        openLightbox(idx);
+      });
+    });
+  }).catch(function() {});
+}
+
+function openLightbox(index) {
+  currentLightboxIndex = index;
+  var lightbox = document.getElementById('lightbox');
+  if (!lightbox || !allMoments.length) return;
+
+  renderLightboxImage();
+  lightbox.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Close on backdrop click
+  lightbox.addEventListener('click', function(e) {
+    if (e.target === lightbox || e.target.tagName !== 'BUTTON') {
+      closeLightbox();
+    }
+  });
+
+  // ESC to close
+  document.addEventListener('keydown', lightboxKeyHandler);
+}
+
+function renderLightboxImage() {
+  var lightbox = document.getElementById('lightbox');
+  if (!lightbox) return;
+  var img = lightbox.querySelector('img');
+  if (!img) return;
+
+  var moment = allMoments[currentLightboxIndex];
+  if (moment) {
+    img.src = moment.imageUrl;
+    img.alt = moment.caption || moment.title || 'Moment';
+  }
+}
+
+function lightboxKeyHandler(e) {
+  if (e.key === 'Escape') {
+    closeLightbox();
+  } else if (e.key === 'ArrowLeft') {
+    navigateLightbox(-1);
+  } else if (e.key === 'ArrowRight') {
+    navigateLightbox(1);
+  }
+}
+
+function navigateLightbox(direction) {
+  if (!allMoments.length) return;
+  currentLightboxIndex = (currentLightboxIndex + direction + allMoments.length) % allMoments.length;
+  renderLightboxImage();
+}
+
+function closeLightbox() {
+  var lightbox = document.getElementById('lightbox');
+  if (lightbox) lightbox.classList.remove('open');
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', lightboxKeyHandler);
+}
+
+// Wire lightbox nav buttons (set up after DOM ready)
+function setupLightboxNav() {
+  var prevBtn = document.querySelector('.lightbox-nav.prev');
+  var nextBtn = document.querySelector('.lightbox-nav.next');
+  if (prevBtn) prevBtn.addEventListener('click', function(e) { e.stopPropagation(); navigateLightbox(-1); });
+  if (nextBtn) nextBtn.addEventListener('click', function(e) { e.stopPropagation(); navigateLightbox(1); });
+}
+
+// ── 15. Testimonies Loader ──────────────────────────────────
+
+function loadTestimonies() {
+  safeQuery('testimonies', 'approved', '==', true).then(function(testimonies) {
+    // Also filter isPublic
+    var publicOnes = testimonies.filter(function(t) {
+      return t.isPublic !== false;
+    });
+
+    if (!publicOnes.length) return;
+
+    var slider = document.getElementById('testimonialsSlider');
+    if (!slider) return;
+
+    var html = '';
+    publicOnes.forEach(function(t) {
+      html += '<div class="testimony-card">' +
+        '<div class="quote-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg></div>' +
+        '<p class="content">' + escapeHtml(t.content || t.testimony || '') + '</p>' +
+        '<p class="author">' + escapeHtml(t.name || 'Anonymous') + '</p>' +
+        (t.date ? '<p class="date">' + formatDate(t.date) + '</p>' : '') +
+        '</div>';
+    });
+
+    slider.innerHTML = html;
+  }).catch(function() {});
+}
 
 function setupTestimonyForm() {
-    const form = document.getElementById('testimonyForm');
-    const feedback = document.getElementById('testimonyFeedback');
-    const toggleBtn = document.getElementById('toggleTestimonyBtn');
-    const formContainer = document.getElementById('testimonyFormContainer');
+  var submitBtn = document.querySelector('.submit-testimony-btn button, .submit-testimony-btn');
+  if (!submitBtn) return;
 
-    toggleBtn?.addEventListener('click', () => {
-        const isActive = formContainer.classList.toggle('active');
-        toggleBtn.classList.toggle('active');
-        
-        if (isActive) {
-            toggleBtn.innerHTML = '<i data-lucide="minus-circle"></i> Hide Form';
-        } else {
-            toggleBtn.innerHTML = '<i data-lucide="plus-circle"></i> Share Your Testimony';
-        }
-        
-        if (window.lucide) {
-            lucide.createIcons();
-        }
+  submitBtn.addEventListener('click', function() {
+    var modal = document.getElementById('testimonyModal');
+    if (modal) modal.classList.add('open');
+  });
+
+  var form = document.getElementById('testimonyForm');
+  if (!form) return;
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var name = form.querySelector('[name="name"]');
+    var testimony = form.querySelector('[name="testimony"]');
+    var isPublic = form.querySelector('[name="isPublic"]');
+
+    if (!testimony || !testimony.value.trim()) {
+      showToast('Please share your testimony.', 'error');
+      return;
+    }
+
+    var data = {
+      name: name ? name.value.trim() : 'Anonymous',
+      content: testimony.value.trim(),
+      isPublic: isPublic ? isPublic.checked : true,
+      approved: false,
+      type: 'testimony',
+      status: 'new',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    db.collection('testimonies').add(data)
+      .then(function() {
+        showToast('Thank you! Your testimony has been submitted for review.', 'success');
+        form.reset();
+        var modal = document.getElementById('testimonyModal');
+        if (modal) modal.classList.remove('open');
+      })
+      .catch(function(err) {
+        // Fallback: save to localStorage
+        lsSet(lsKey('testimonies', 'pending_' + Date.now()), data);
+        showToast('Saved locally. It will sync when connection is restored.', 'info');
+      });
+  });
+
+  // Close testimony modal
+  var modal = document.getElementById('testimonyModal');
+  if (modal) {
+    var closeBtn = modal.querySelector('.modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', function() { modal.classList.remove('open'); });
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) modal.classList.remove('open');
     });
-    
-    form?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const name = document.getElementById('testimonyName').value.trim();
-        const message = document.getElementById('testimonyMessage').value.trim();
-        
-        if (!name || !message) {
-            showFeedback(feedback, 'Please fill in all fields', 'error');
-            return;
-        }
-        
-        try {
-            await db.collection(Collections.TESTIMONIES).add({
-                name: name,
-                message: message,
-                approved: false,
-                submittedAt: firebase.firestore.Timestamp.now()
-            });
-            
-            form.reset();
-            showFeedback(feedback, 'Thank you! Your testimony has been submitted and is awaiting approval.', 'success');
-        } catch (error) {
-            console.error('Error submitting testimony:', error.message || String(error));
-            showFeedback(feedback, 'An error occurred. Please try again later.', 'error');
-        }
-    });
+  }
 }
 
-// ========================================
-// Contact Form
-// ========================================
+// ── 16. Giving Section ────────────────────────────────────────
+
+function loadGiving() {
+  safeGet('content', 'giving').then(function(data) {
+    if (!data) return;
+
+    // If data has giving details, enhance the static giving section
+    if (data.bankName || data.accountNumber || data.ussdCode) {
+      var givingGrid = document.querySelector('.giving-grid');
+      if (givingGrid) {
+        // Update bank details if present
+        var bankDetail = givingGrid.querySelector('.bank-detail');
+        if (bankDetail && data.accountNumber) {
+          bankDetail.textContent = data.accountNumber;
+        }
+        var bankNameEl = givingGrid.querySelector('.giving-card h3');
+        if (bankNameEl && data.bankName) {
+          bankNameEl.textContent = data.bankName;
+        }
+        var ussdEl = givingGrid.querySelector('.ussd-code');
+        if (ussdEl && data.ussdCode) {
+          ussdEl.textContent = data.ussdCode;
+        }
+      }
+    }
+  }).catch(function() {});
+}
+
+// ── 17. Contact Form Handler ──────────────────────────────────
 
 function setupContactForm() {
-    const form = document.getElementById('contactForm');
-    const feedback = document.getElementById('contactFeedback');
-    
-    form?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const name = document.getElementById('contactName').value.trim();
-        const email = document.getElementById('contactEmailInput').value.trim();
-        const message = document.getElementById('contactMessage').value.trim();
-        
-        if (!name || !email || !message) {
-            showFeedback(feedback, 'Please fill in all fields', 'error');
-            return;
-        }
-        
-        try {
-            await db.collection(Collections.MESSAGES).add({
-                name: name,
-                email: email,
-                message: message,
-                submittedAt: firebase.firestore.Timestamp.now()
-            });
-            
-            form.reset();
-            showFeedback(feedback, 'Message logged successfully! Opening your email app to send...', 'success');
-            
-            // Build and trigger the mailto client to adageorgestudio@gmail.com
-            setTimeout(() => {
-                const subject = encodeURIComponent(`Message from ${name}`);
-                const bodyMsg = encodeURIComponent(`Hi Salvation Ministries Ada George,\n\nI am contacting you from the website.\n\nName: ${name}\nEmail: ${email}\n\nMessage:\n${message}`);
-                window.location.href = `mailto:adageorgestudio@gmail.com?subject=${subject}&body=${bodyMsg}`;
-            }, 800);
-        } catch (error) {
-            console.error('Error submitting contact form:', error.message || String(error));
-            showFeedback(feedback, 'An error occurred. Please try again later.', 'error');
-        }
+  var form = document.getElementById('contactForm');
+  if (!form) return;
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    var name = form.querySelector('[name="name"]');
+    var email = form.querySelector('[name="email"]');
+    var subject = form.querySelector('[name="subject"]');
+    var message = form.querySelector('[name="message"]');
+
+    // Basic validation
+    if (!name || !name.value.trim()) {
+      showToast('Please enter your name.', 'error');
+      return;
+    }
+    if (!email || !email.value.trim() || !email.value.includes('@')) {
+      showToast('Please enter a valid email address.', 'error');
+      return;
+    }
+    if (!message || !message.value.trim()) {
+      showToast('Please enter a message.', 'error');
+      return;
+    }
+
+    // Determine message type from subject
+    var subjectValue = subject ? subject.value : '';
+    var msgType = 'contact';
+    if (subjectValue.toLowerCase().indexOf('prayer') !== -1) {
+      msgType = 'prayer';
+    }
+
+    var data = {
+      name: name.value.trim(),
+      email: email.value.trim(),
+      subject: subjectValue,
+      message: message.value.trim(),
+      type: msgType,
+      status: 'new',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    db.collection('messages').add(data)
+      .then(function() {
+        showToast('Message sent successfully! We will get back to you soon.', 'success');
+        form.reset();
+      })
+      .catch(function(err) {
+        // Fallback: save locally
+        lsSet(lsKey('messages', Date.now()), data);
+        showToast('Saved locally. Message will be sent when connection is restored.', 'info');
+      });
+  });
+}
+
+// ── 18. Dynamic Sections Loader ─────────────────────────────
+
+function loadDynamicSections() {
+  safeList('sections', 'order', 20).then(function(sections) {
+    if (!sections || !sections.length) return;
+
+    var container = document.getElementById('dynamicSections');
+    if (!container) return;
+
+    var html = '';
+    sections.forEach(function(section) {
+      if (!section.visible && section.visible !== undefined) return;
+
+      if (section.type === 'text-image') {
+        html += renderTextImageSection(section);
+      } else if (section.type === 'video') {
+        html += renderVideoSection(section);
+      } else if (section.type === 'features') {
+        html += renderFeaturesSection(section);
+      }
     });
-}
 
-// ========================================
-// Real-time Listeners
-// ========================================
-
-function setupRealtimeListeners() {
-    db.collection(Collections.SETTINGS).doc('theme')
-        .onSnapshot((doc) => {
-            if (doc.exists) {
-                loadThemeSettings();
-            }
-        }, (error) => handleFirestoreError(error, OperationType.GET, Collections.SETTINGS));
-    
-    db.collection(Collections.CONTENT).doc('about')
-        .onSnapshot((doc) => {
-            if (doc.exists) {
-                loadAboutContent();
-            }
-        }, (error) => handleFirestoreError(error, OperationType.GET, Collections.CONTENT));
-
-    db.collection(Collections.CONTENT).doc('contact')
-        .onSnapshot((doc) => {
-            if (doc.exists) {
-                loadContactInfo();
-            }
-        }, (error) => handleFirestoreError(error, OperationType.GET, Collections.CONTENT));
-
-    db.collection(Collections.SERVICES).doc('schedule')
-        .onSnapshot((doc) => {
-            if (doc.exists) {
-                loadServiceTimes();
-            }
-        }, (error) => handleFirestoreError(error, OperationType.GET, Collections.SERVICES));
-    
-    db.collection(Collections.SERMONS)
-        .onSnapshot(() => {
-            loadSermons();
-        }, (error) => handleFirestoreError(error, OperationType.LIST, Collections.SERMONS));
-    
-    db.collection(Collections.EVENTS)
-        .onSnapshot(() => {
-            loadEvents();
-        }, (error) => handleFirestoreError(error, OperationType.LIST, Collections.EVENTS));
-
-    db.collection(Collections.QUOTES)
-        .onSnapshot(() => {
-            loadQuotes();
-        }, (error) => handleFirestoreError(error, OperationType.LIST, Collections.QUOTES));
-
-    db.collection(Collections.MOMENTS)
-        .onSnapshot(() => {
-            loadMoments();
-        }, (error) => handleFirestoreError(error, OperationType.LIST, Collections.MOMENTS));
-    
-    db.collection(Collections.TESTIMONIES)
-        .onSnapshot(() => {
-            loadTestimonies();
-        }, (error) => handleFirestoreError(error, OperationType.LIST, Collections.TESTIMONIES));
-}
-
-// ========================================
-// Utility Functions
-// ========================================
-
-function showFeedback(element, message, type) {
-    element.textContent = message;
-    element.className = `form-feedback ${type}`;
-    
-    setTimeout(() => {
-        element.className = 'form-feedback';
-    }, 5000);
-}
-
-function formatDate(timestamp) {
-    if (!timestamp) return '';
-    
-    let date;
-    if (timestamp.toDate) {
-        date = timestamp.toDate();
-    } else if (timestamp instanceof Date) {
-        date = timestamp;
-    } else {
-        date = new Date(timestamp);
-    }
-    
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    return date.toLocaleDateString('en-US', options);
-}
-
-// ========================================
-// Dynamic Custom Sections Loading
-// ========================================
-
-async function loadCustomSections() {
-    try {
-        const container = document.getElementById('dynamic-sections');
-        if (!container) return;
-
-        // Fetch custom sections ordered by 'order'
-        const snapshot = await safeList(db.collection(Collections.SECTIONS).orderBy('order', 'asc'));
-        
-        if (!snapshot || snapshot.empty) {
-            container.innerHTML = '';
-            return;
-        }
-
-        let html = '';
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            const sectionId = doc.id;
-
-            // Gather background inline styling
-            let bgStyle = '';
-            if (data.bgType === 'image' && data.bgImage) {
-                bgStyle = `background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.65)), url('${data.bgImage}'); background-size: cover; background-position: center; background-attachment: fixed;`;
-            } else if (data.bgType === 'gradient' && data.bgGradient) {
-                bgStyle = `background: ${data.bgGradient};`;
-            } else if (data.bgType === 'color' && data.bgColor) {
-                bgStyle = `background-color: ${data.bgColor};`;
-            } else {
-                bgStyle = `background: var(--bg-white);`;
-            }
-
-            // Gather title inline styling
-            let titleStyle = '';
-            let titleClass = '';
-            if (data.useGradient && data.titleGradient) {
-                titleStyle = `background: ${data.titleGradient}; -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: inline-block;`;
-                titleClass = 'gradient-title';
-            } else if (data.titleColor) {
-                titleStyle = `color: ${data.titleColor};`;
-            }
-
-            // Heuristic for dark background
-            const isDarkBg = data.bgType === 'image' || (data.bgType === 'color' && isColorDark(data.bgColor)) || (data.bgType === 'gradient' && isGradientDark(data.bgGradient));
-            let titleDefaultColor = isDarkBg ? '#ffffff' : 'var(--text-dark)';
-
-            let contentHTML = '';
-            if (data.contentType === 'text') {
-                contentHTML = `
-                    <div class="custom-section-text-content" style="color: ${isDarkBg ? '#f1f5f9' : 'var(--text-dark)'}; max-width: 900px; margin: 0 auto; line-height: 1.8; font-size: 1.125rem;">
-                        ${data.textHTML || ''}
-                    </div>
-                `;
-            } else if (data.contentType === 'cards' && data.cards) {
-                const cardsHTML = data.cards.map(card => {
-                    const iconPos = card.iconPosition || 'top';
-                    const iconStyle = `width: ${card.iconSize || '28px'}; height: ${card.iconSize || '28px'}; color: ${card.iconColor || 'var(--primary-color)'}; flex-shrink: 0;`;
-                    
-                    const cardBg = isDarkBg ? 'rgba(255,255,255,0.05)' : 'var(--card-bg, #ffffff)';
-                    const cardBorder = isDarkBg ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
-                    const cardColor = isDarkBg ? '#f1f5f9' : 'var(--text-dark)';
-                    const cardDescColor = isDarkBg ? '#94a3b8' : 'var(--text-muted)';
-                    const shadow = isDarkBg ? '0 10px 30px -10px rgba(0,0,0,0.5)' : 'var(--card-shadow, 0 4px 6px -1px rgba(0,0,0,0.05))';
-
-                    if (iconPos === 'left') {
-                        return `
-                            <div class="custom-dyn-card left-icon" style="background: ${cardBg}; border: 1px solid ${cardBorder}; box-shadow: ${shadow}; color: ${cardColor}; display: flex; text-align: left; padding: 2rem; border-radius: 16px;">
-                                ${card.icon ? `
-                                <div class="custom-dyn-icon" style="margin-right: 1.25rem; margin-top: 0.25rem; display: flex;">
-                                    <i data-lucide="${card.icon}" style="${iconStyle}"></i>
-                                </div>` : ''}
-                                <div class="custom-dyn-body">
-                                    <h3 style="color: ${cardColor}; font-size: 1.2rem; font-weight: 700; margin: 0 0 0.5rem 0; line-height: 1.4;">${card.title || ''}</h3>
-                                    <p style="color: ${cardDescColor}; margin: 0; font-size: 0.95rem; line-height: 1.6;">${card.description || ''}</p>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        return `
-                            <div class="custom-dyn-card top-icon" style="background: ${cardBg}; border: 1px solid ${cardBorder}; box-shadow: ${shadow}; color: ${cardColor}; display: flex; flex-direction: column; text-align: left; padding: 2rem; border-radius: 16px;">
-                                ${card.icon ? `
-                                <div class="custom-dyn-icon" style="margin-bottom: 1rem; display: flex;">
-                                    <i data-lucide="${card.icon}" style="${iconStyle}"></i>
-                                </div>` : ''}
-                                <div class="custom-dyn-body">
-                                    <h3 style="color: ${cardColor}; font-size: 1.2rem; font-weight: 700; margin: 0 0 0.5rem 0; line-height: 1.4;">${card.title || ''}</h3>
-                                    <p style="color: ${cardDescColor}; margin: 0; font-size: 0.95rem; line-height: 1.6;">${card.description || ''}</p>
-                                </div>
-                            </div>
-                        `;
-                    }
-                }).join('');
-
-                contentHTML = `
-                    <div class="custom-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
-                        ${cardsHTML}
-                    </div>
-                `;
-            }
-
-            html += `
-                <section class="custom-dynamic-section" id="dyn-${sectionId}" style="${bgStyle} position: relative; overflow: hidden;" data-reveal="fade-in">
-                    <div class="container" style="position: relative; z-index: 2;">
-                        <div class="section-header" style="margin-bottom: 3.5rem; text-align: center;">
-                            <h2 class="${titleClass}" style="${titleStyle || `color: ${titleDefaultColor};`}; font-size: clamp(1.8rem, 3.5vw, 2.5rem); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.75rem;">
-                                ${data.title || ''}
-                            </h2>
-                            <div class="section-divider" style="background: ${data.useGradient && data.titleGradient ? 'var(--primary-color)' : (data.titleColor || 'var(--primary-color)')}; margin: 0 auto; width: 60px; height: 4px; border-radius: 4px;"></div>
-                        </div>
-                        ${contentHTML}
-                    </div>
-                </section>
-            `;
+    container.innerHTML = html;
+    setupImagePopIn();
+    // Re-observe new reveal elements
+    var revealEls = container.querySelectorAll('[data-reveal]');
+    revealEls.forEach(function(el) {
+      var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('revealed');
+            obs.unobserve(entry.target);
+          }
         });
-
-        container.innerHTML = html;
-
-        // Re-initialize Lucide icons for new content
-        if (window.lucide) {
-            window.lucide.createIcons();
-        }
-    } catch (error) {
-        console.error('Error loading custom sections:', error.message || String(error));
-    }
+      }, { threshold: 0.15 });
+      obs.observe(el);
+    });
+  }).catch(function() {});
 }
 
-function isColorDark(colorHex) {
-    if (!colorHex || colorHex[0] !== '#') return false;
-    const cleanHex = colorHex.replace('#', '');
-    let r, g, b;
-    if (cleanHex.length === 3) {
-        r = parseInt(cleanHex[0] + cleanHex[0], 16);
-        g = parseInt(cleanHex[1] + cleanHex[1], 16);
-        b = parseInt(cleanHex[2] + cleanHex[2], 16);
-    } else if (cleanHex.length === 6) {
-        r = parseInt(cleanHex.slice(0, 2), 16);
-        g = parseInt(cleanHex.slice(2, 4), 16);
-        b = parseInt(cleanHex.slice(4, 6), 16);
-    } else {
-        return false;
-    }
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance < 0.65;
+function renderTextImageSection(section) {
+  var reverseClass = section.reverse ? ' reverse' : '';
+  var imageHtml = section.imageUrl
+    ? '<img src="' + escapeHtml(section.imageUrl) + '" alt="' + escapeHtml(section.title || '') + '" loading="lazy">'
+    : '';
+
+  return '<div class="dynamic-section text-image' + reverseClass + '" data-reveal="fade-up">' +
+    (section.reverse
+      ? '<div class="rich-text">' + (section.title ? '<h3>' + escapeHtml(section.title) + '</h3>' : '') + (section.body || section.content ? '<p>' + escapeHtml(section.body || section.content) + '</p>' : '') + '</div>' + '<div>' + imageHtml + '</div>'
+      : '<div>' + imageHtml + '</div><div class="rich-text">' + (section.title ? '<h3>' + escapeHtml(section.title) + '</h3>' : '') + (section.body || section.content ? '<p>' + escapeHtml(section.body || section.content) + '</p>' : '') + '</div>'
+    ) +
+    '</div>';
 }
 
-function isGradientDark(gradientStr) {
-    if (!gradientStr) return false;
-    const lower = gradientStr.toLowerCase();
-    if (lower.includes('black') || lower.includes('#00') || lower.includes('#0f') || lower.includes('#1') || lower.includes('#2') || lower.includes('rgb(0') || lower.includes('dark')) {
-        return true;
-    }
-    return false;
+function renderVideoSection(section) {
+  var embedUrl = section.videoUrl || '';
+  // Convert YouTube watch URL to embed
+  var ytMatch = embedUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) {
+    embedUrl = 'https://www.youtube.com/embed/' + ytMatch[1];
+  }
+
+  return '<div class="dynamic-section" data-reveal="fade-up">' +
+    (section.title ? '<h2 style="text-align:center;margin-bottom:24px;">' + escapeHtml(section.title) + '</h2>' : '') +
+    '<div class="dynamic-video">' +
+      '<iframe src="' + escapeHtml(embedUrl) + '" allow="autoplay; encrypted-media" allowfullscreen title="' + escapeHtml(section.title || 'Video') + '"></iframe>' +
+    '</div>' +
+    '</div>';
 }
+
+function renderFeaturesSection(section) {
+  var features = section.features || section.items || [];
+  var cardsHtml = '';
+
+  features.forEach(function(f) {
+    var iconSvg = f.icon || '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>';
+    cardsHtml += '<div class="feature-card">' +
+      '<div class="icon">' + iconSvg + '</div>' +
+      '<h4>' + escapeHtml(f.title || f.name || '') + '</h4>' +
+      '<p>' + escapeHtml(f.description || f.text || '') + '</p>' +
+      '</div>';
+  });
+
+  return '<div class="dynamic-section" data-reveal="fade-up">' +
+    (section.title ? '<h2 style="text-align:center;margin-bottom:32px;">' + escapeHtml(section.title) + '</h2>' : '') +
+    '<div class="feature-cards-grid">' + cardsHtml + '</div>' +
+    '</div>';
+}
+
+// ── 19. Toast Notification System ────────────────────────────
+
+function showToast(message, type) {
+  type = type || 'info';
+  var container = document.getElementById('toastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  var toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+
+  var iconSvg = '';
+  if (type === 'success') {
+    iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+  } else if (type === 'error') {
+    iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  } else {
+    iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+  }
+
+  toast.innerHTML = '<span class="toast-icon">' + iconSvg + '</span>' +
+    '<span class="toast-message">' + escapeHtml(message) + '</span>';
+
+  container.appendChild(toast);
+
+  // Auto-remove after 4 seconds
+  setTimeout(function() {
+    toast.style.animation = 'slideIn 0.3s ease-out reverse forwards';
+    setTimeout(function() {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 350);
+  }, 4000);
+}
+
+// ── 20. Navigation Active State ─────────────────────────────
+
+function setupNavActiveState() {
+  var navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+  if (!navLinks.length) return;
+
+  var sectionIds = [];
+  navLinks.forEach(function(link) {
+    var href = link.getAttribute('href');
+    if (href && href.length > 1) {
+      var sectionId = href.substring(1);
+      var section = document.getElementById(sectionId);
+      if (section) {
+        sectionIds.push({ id: sectionId, el: section, link: link });
+      }
+    }
+  });
+
+  if (!sectionIds.length) return;
+
+  var navObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        // Remove active from all
+        navLinks.forEach(function(l) { l.classList.remove('active'); });
+        // Find matching link
+        var match = sectionIds.find(function(s) { return s.el === entry.target; });
+        if (match) match.link.classList.add('active');
+      }
+    });
+  }, {
+    threshold: 0.3,
+    rootMargin: '-' + (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 72) + 'px 0px -40% 0px'
+  });
+
+  sectionIds.forEach(function(s) { navObserver.observe(s.el); });
+}
+
+// ── Helper Utilities ─────────────────────────────────────────
+
+function escapeHtml(str) {
+  if (!str) return '';
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+function formatDate(dateVal) {
+  if (!dateVal) return '';
+  var d;
+  if (dateVal && dateVal.toDate) {
+    d = dateVal.toDate();
+  } else if (typeof dateVal === 'string') {
+    d = new Date(dateVal);
+  } else if (dateVal instanceof Date) {
+    d = dateVal;
+  } else {
+    return '';
+  }
+  if (isNaN(d.getTime())) return '';
+  var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+}
+
+// ── 21. Initialization ───────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', function() {
+  // 1. Apply theme — use localStorage cache first, then fetch from Firestore
+  var cachedTheme = lsGet(lsKey('settings', 'theme'));
+  if (cachedTheme) applyTheme(cachedTheme);
+
+  safeGet('settings', 'theme').then(function(settings) {
+    if (settings) {
+      applyTheme(settings);
+      lsSet(lsKey('settings', 'theme'), settings);
+    }
+  }).catch(function() {});
+
+  // 2. Set up all observers
+  setupRevealObserver();
+  setupImagePopIn();
+
+  // 3. Set up scroll listeners
+  setupScrollProgress();
+  setupHeaderScroll();
+
+  // 4. Set up mobile navigation
+  setupMobileNav();
+
+  // 5. Load all section data (fire-and-forget — each manages its own rendering)
+  loadHero();
+  loadServices();
+  loadSermons();
+  loadQuotes();
+  loadMoments();
+  loadTestimonies();
+  loadDynamicSections();
+  loadGiving();
+
+  // 6. Set up form handlers
+  setupContactForm();
+  setupTestimonyForm();
+
+  // 7. Set up cross-tab sync listener
+  setupCrossTabSync();
+
+  // 8. Navigation active state tracking
+  setupNavActiveState();
+
+  // 9. Lightbox navigation buttons
+  setupLightboxNav();
+});

@@ -1,1347 +1,602 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script>
-      window.onerror = function(msg, url, line, col, error) {
-        console.error('GLOBAL ERROR:', msg || 'Unknown error');
-        return true; // Suppress default browser/iframe reporting
-      };
-      window.onunhandledrejection = function(event) {
-        try {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-        } catch (e) {}
-        const reason = event.reason;
-        console.error('UNHANDLED REJECTION:', reason?.message || String(reason || 'Unknown rejection'));
-      };
-
-      // Defensive patch to prevent injected share-modal or platform scripts from crashing due to missing elements
-      (function() {
-        const createDummyElement = (name) => {
-          const styleProxy = new Proxy({}, {
-            get(t, prop) { return t[prop] || ''; },
-            set(t, prop, val) { t[prop] = val; return true; }
-          });
-          const classListProxy = new Proxy({
-            add: () => {},
-            remove: () => {},
-            toggle: () => {},
-            contains: () => false,
-            replace: () => {}
-          }, {
-            get(t, prop) { return t[prop] || (() => {}); }
-          });
-          const target = {
-            tagName: 'DIV',
-            id: name,
-            className: '',
-            innerHTML: '',
-            outerHTML: '',
-            innerText: '',
-            textContent: '',
-            style: styleProxy,
-            classList: classListProxy,
-            addEventListener: () => {},
-            removeEventListener: () => {},
-            setAttribute: () => {},
-            removeAttribute: () => {},
-            getAttribute: () => null,
-            hasAttribute: () => false,
-            appendChild: (c) => c,
-            removeChild: (c) => c,
-            querySelector: () => null,
-            querySelectorAll: () => [],
-            click: () => {},
-            focus: () => {},
-            blur: () => {}
-          };
-          return new Proxy(target, {
-            get(t, prop) {
-              if (prop in t) return t[prop];
-              if (typeof prop === 'string' && prop.startsWith('on')) return null;
-              return () => {};
-            },
-            set(t, prop, val) { t[prop] = val; return true; }
-          });
-        };
-
-        const isShareModalCaller = () => {
-          try {
-            const stack = new Error().stack || '';
-            return stack.includes('share-modal') || stack.includes('share-btn') || stack.includes('platform');
-          } catch (e) {
-            return false;
-          }
-        };
-
-        const originalGetElementById = document.getElementById;
-        document.getElementById = function(id) {
-          const el = originalGetElementById.call(document, id);
-          if (!el) {
-            const isShare = id && typeof id === 'string' && id.toLowerCase().includes('share');
-            if (isShare || isShareModalCaller()) {
-              console.info(`[Defensive Patch] Mocking missing element with ID: "${id}"`);
-              return createDummyElement(id);
-            }
-          }
-          return el;
-        };
-
-        const originalQuerySelector = document.querySelector;
-        document.querySelector = function(selector) {
-          try {
-            const el = originalQuerySelector.call(document, selector);
-            if (!el) {
-              const isShare = selector && typeof selector === 'string' && selector.toLowerCase().includes('share');
-              if (isShare || isShareModalCaller()) {
-                console.info(`[Defensive Patch] Mocking missing element with selector: "${selector}"`);
-                return createDummyElement(selector);
-              }
-            }
-            return el;
-          } catch (e) {
-            return originalQuerySelector.call(document, selector);
-          }
-        };
-      })();
-    </script>
-    <title>Admin Dashboard - Salvation Ministries</title>
-    <link rel="icon" type="image/png" href="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=64&q=80">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        /* Admin-specific styles */
-        :root {
-            --sidebar-width: 280px;
-        }
-
-        .admin-container {
-            display: flex;
-            min-height: 100vh;
-            background: var(--bg-light);
-        }
-        
-        .admin-sidebar {
-            width: var(--sidebar-width);
-            background: var(--bg-white);
-            border-right: 1px solid rgba(0, 0, 0, 0.05);
-            position: fixed;
-            height: 100vh;
-            overflow-y: auto;
-            z-index: 100;
-            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.02);
-        }
-        
-        .admin-logo {
-            padding: 2.5rem 2rem;
-            text-align: center;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-        }
-        
-        .admin-logo img {
-            width: 56px;
-            height: 56px;
-            margin: 0 auto 1rem;
-            border-radius: 12px;
-            object-fit: cover;
-        }
-        
-        .admin-logo h2 {
-            font-family: var(--font-display);
-            font-size: 1.25rem;
-            color: var(--primary-color);
-            font-weight: 800;
-            letter-spacing: -0.02em;
-        }
-        
-        .admin-nav {
-            padding: 2rem 1rem;
-        }
-        
-        .admin-nav-item {
-            padding: 0.875rem 1.5rem;
-            display: flex;
-            align-items: center;
-            color: var(--text-muted);
-            transition: var(--transition);
-            cursor: pointer;
-            font-weight: 600;
-            border-radius: 12px;
-            margin-bottom: 0.5rem;
-            font-size: 0.95rem;
-        }
-        
-        .admin-nav-item:hover {
-            background: rgba(37, 99, 235, 0.05);
-            color: var(--primary-color);
-        }
-        
-        .admin-nav-item.active {
-            background: var(--primary-color);
-            color: white;
-            box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.3);
-        }
-        
-        .admin-main {
-            margin-left: var(--sidebar-width);
-            flex: 1;
-            padding: 3rem;
-            width: calc(100% - var(--sidebar-width));
-        }
-        
-        .admin-header {
-            margin-bottom: 3rem;
-        }
-        
-        .admin-header h1 {
-            font-family: var(--font-display);
-            font-size: 2.25rem;
-            color: var(--text-dark);
-            font-weight: 800;
-            letter-spacing: -0.03em;
-        }
-        
-        .admin-panel {
-            display: none;
-            animation: fadeIn 0.4s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .admin-panel.active {
-            display: block;
-        }
-        
-        .admin-card {
-            background: var(--bg-white);
-            padding: 2.5rem;
-            border-radius: 20px;
-            margin-bottom: 2.5rem;
-            box-shadow: var(--shadow-sm);
-            border: 1px solid rgba(0, 0, 0, 0.05);
-        }
-        
-        .admin-card h2 {
-            font-family: var(--font-display);
-            font-size: 1.5rem;
-            color: var(--text-dark);
-            margin-bottom: 2rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .admin-card h2::before {
-            content: '';
-            width: 4px;
-            height: 24px;
-            background: var(--primary-color);
-            border-radius: 2px;
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 0.75rem;
-            font-weight: 700;
-            color: var(--text-dark);
-            font-size: 0.9rem;
-        }
-        
-        .form-group input,
-        .form-group textarea,
-        .form-group select {
-            width: 100%;
-            padding: 0.875rem 1rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            font-family: var(--font-body);
-            font-size: 1rem;
-            transition: var(--transition);
-            background: var(--bg-light);
-            color: var(--text-dark);
-        }
-
-        body.dark-mode .form-group input,
-        body.dark-mode .form-group textarea,
-        body.dark-mode .form-group select {
-            border-color: #334155;
-        }
-        
-        .form-group input:focus,
-        .form-group textarea:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            background: var(--bg-white);
-        }
-        
-        .form-group input[type="color"] {
-            height: 50px;
-            padding: 4px;
-            cursor: pointer;
-        }
-        
-        .btn-admin {
-            padding: 1rem 2rem;
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: var(--transition);
-            box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.3);
-        }
-        
-        .btn-admin:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 30px -5px rgba(37, 99, 235, 0.4);
-        }
-        
-        .item-list {
-            display: grid;
-            gap: 1.25rem;
-            margin-top: 2.5rem;
-        }
-        
-        .item-card {
-            background: var(--bg-light);
-            padding: 1.5rem;
-            border-radius: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid rgba(0, 0, 0, 0.05);
-            transition: var(--transition);
-        }
-
-        .item-card:hover {
-            border-color: var(--primary-color);
-            background: var(--bg-white);
-            box-shadow: var(--shadow-md);
-        }
-        
-        .login-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-            padding: 2rem;
-        }
-        
-        .login-card {
-            background: white;
-            padding: 3.5rem 3rem;
-            border-radius: 24px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            max-width: 440px;
-            width: 100%;
-        }
-        
-        .login-logo {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-        
-        .login-logo img {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 1.5rem;
-            border-radius: 16px;
-            object-fit: cover;
-        }
-        
-        .login-logo h2 {
-            font-family: var(--font-display);
-            font-size: 1.75rem;
-            color: var(--primary-color);
-            font-weight: 800;
-            letter-spacing: -0.03em;
-        }
-        
-        @media (max-width: 1024px) {
-            .admin-sidebar {
-                width: 80px;
-            }
-            .admin-sidebar h2, .admin-nav-item span {
-                display: none;
-            }
-            .admin-main {
-                margin-left: 80px;
-                width: calc(100% - 80px);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .admin-sidebar {
-                display: none;
-            }
-            .admin-main {
-                margin-left: 0;
-                width: 100%;
-                padding: 1.5rem;
-            }
-        }
-        .empty-msg {
-            text-align: center;
-            padding: 3rem;
-            color: var(--text-muted);
-            font-style: italic;
-        }
-
-        /* Tabs */
-        .tabs {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
-            padding-bottom: 1rem;
-        }
-
-        .tab-btn {
-            padding: 0.5rem 1.5rem;
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-weight: 600;
-            color: var(--text-muted);
-            transition: var(--transition);
-            border-radius: 8px;
-        }
-
-        .tab-btn.active {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin CMS — Ada George Church</title>
+  <link rel="icon" href="img/favicon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
 </head>
 <body>
-    <!-- Login Screen -->
-    <div id="loginScreen" class="login-container">
-        <div class="login-card">
-            <div class="login-logo">
-                <img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=200&q=80" alt="Logo">
-                <h2>Admin Portal</h2>
-            </div>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" id="loginUsername" required>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="loginPassword" required>
-                </div>
-                <button type="submit" class="btn-admin" style="width: 100%; margin-top: 1.5rem;">Sign In</button>
-                
-                <div style="margin: 1.5rem 0; text-align: center; border-bottom: 1px solid #eee; line-height: 0.1em;">
-                    <span style="background: #fff; padding: 0 10px; color: #aaa; font-size: 0.8rem;">OR</span>
-                </div>
 
-                <button type="button" id="googleLoginBtn" class="btn-admin" style="width: 100%; background: #fff; color: #444; border: 1px solid #ddd; box-shadow: none; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" height="18" alt="Google logo">
-                    Sign in with Google
-                </button>
-                
-                <div id="loginFeedback" class="form-feedback"></div>
-            </form>
+  <!-- Login Modal -->
+  <div class="login-modal" id="loginModal">
+    <div class="login-card">
+      <h2>Admin Login</h2>
+      <p class="login-subtitle">Enter your admin password to continue</p>
+      <form id="loginForm">
+        <div class="form-group">
+          <label>Password</label>
+          <div class="password-wrap">
+            <input type="password" id="loginPassword" placeholder="Enter admin password" required>
+            <span class="password-toggle" id="passwordToggle">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </span>
+          </div>
         </div>
+        <button type="submit" class="login-btn">Sign In</button>
+        <p class="login-error" id="loginError"></p>
+      </form>
     </div>
+  </div>
 
-    <!-- Admin Dashboard -->
-    <div id="adminDashboard" class="admin-container" style="display: none;">
-        <!-- Sidebar -->
-        <aside class="admin-sidebar">
-            <div class="admin-logo">
-                <img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=200&q=80" alt="Logo">
-                <h2>Admin</h2>
+  <!-- Admin Layout -->
+  <div class="admin-layout hidden" id="adminLayout">
+
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+      <div class="sidebar-logo">
+        <h2>Ada George CMS</h2>
+        <p>Content Management</p>
+      </div>
+      <nav id="sidebarNav">
+        <a data-panel="dashboard" class="active">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </a>
+        <a data-panel="theme">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+          Theme
+        </a>
+        <a data-panel="hero">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          Hero & Content
+        </a>
+        <a data-panel="sermons">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Sermons
+        </a>
+        <a data-panel="events">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Events
+        </a>
+        <a data-panel="quotes">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+          Quotes
+        </a>
+        <a data-panel="testimonies">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Testimonies
+        </a>
+        <a data-panel="messages">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          Messages
+        </a>
+        <a data-panel="sections">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          Sections
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+      <div class="admin-header">
+        <h1 id="panelTitle">Dashboard</h1>
+        <button class="logout-btn" id="logoutBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </button>
+      </div>
+
+      <!-- Dashboard Panel -->
+      <div class="admin-panel active" id="panelDashboard">
+        <div class="admin-grid" data-reveal-stagger>
+          <div class="service-card">
+            <div class="service-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             </div>
-            <nav class="admin-nav">
-                <a class="admin-nav-item active" data-panel="theme"><span>Theme Settings</span></a>
-                <a class="admin-nav-item" data-panel="hero"><span>Hero Section</span></a>
-                <a class="admin-nav-item" data-panel="content"><span>About Content</span></a>
-                <a class="admin-nav-item" data-panel="services"><span>Service Times</span></a>
-                <a class="admin-nav-item" data-panel="sermons"><span>Sermons</span></a>
-                <a class="admin-nav-item" data-panel="events"><span>Events</span></a>
-                <a class="admin-nav-item" data-panel="testimonies"><span>Testimonies</span></a>
-                <a class="admin-nav-item" data-panel="quotes"><span>Daily Quotes</span></a>
-                <a class="admin-nav-item" data-panel="moments"><span>Moments</span></a>
-                <a class="admin-nav-item" data-panel="messages"><span>Messages</span></a>
-                <a class="admin-nav-item" data-panel="custom-sections"><span>Custom Sections</span></a>
-                <a class="admin-nav-item" data-panel="design"><span>Design System</span></a>
-                <div style="margin-top: 2rem; padding: 1rem; border-top: 1px solid rgba(0,0,0,0.05);">
-                    <button id="logoutBtn" class="btn-admin" style="width: 100%; background: #f1f5f9; color: #ef4444; box-shadow: none;">Logout</button>
-                </div>
-            </nav>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="admin-main">
-            <div class="admin-header">
-                <h1>Dashboard</h1>
+            <h3>Total Sermons</h3>
+            <p class="text-primary" style="font-size:1.8rem;font-weight:700" id="statSermons">0</p>
+          </div>
+          <div class="service-card">
+            <div class="service-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
             </div>
-
-            <!-- Design System Panel -->
-            <div id="designPanel" class="admin-panel">
-                <div class="admin-card">
-                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                        <h2 style="margin-bottom: 0;">Design System</h2>
-                        <button type="submit" form="designForm" class="btn-admin">Save System Changes</button>
-                    </div>
-                    
-                    <form id="designForm" class="admin-form">
-                        <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
-                            <div class="form-group">
-                                <label>Interface Theme Mode</label>
-                                <select id="designThemeMode">
-                                    <option value="light">Light Mode</option>
-                                    <option value="dark">Dark Mode</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Primary Theme Color</label>
-                                <input type="color" id="designPrimaryColor">
-                            </div>
-                            <div class="form-group">
-                                <label>Primary Hover Color</label>
-                                <input type="color" id="designPrimaryHover">
-                            </div>
-                            <div class="form-group">
-                                <label>Global Border Radius (px)</label>
-                                <input type="range" id="designBorderRadius" min="0" max="40" step="2">
-                                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
-                                    <span style="font-size: 0.8rem; opacity: 0.6;">Sharp</span>
-                                    <span id="borderRadiusVal" style="font-weight: 700; color: var(--primary-color);">12px</span>
-                                    <span style="font-size: 0.8rem; opacity: 0.6;">Round</span>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Section Vertical Spacing (rem)</label>
-                                <input type="range" id="designSpacing" min="1" max="15" step="0.5">
-                                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
-                                    <span style="font-size: 0.8rem; opacity: 0.6;">Compact</span>
-                                    <span id="spacingVal" style="font-weight: 700; color: var(--primary-color);">5rem</span>
-                                    <span style="font-size: 0.8rem; opacity: 0.6;">Spacious</span>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Base Text Size (px)</label>
-                                <input type="range" id="designFontSize" min="14" max="24" step="1">
-                                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
-                                    <span style="font-size: 0.8rem; opacity: 0.6;">Small</span>
-                                    <span id="fontSizeVal" style="font-weight: 700; color: var(--primary-color);">16px</span>
-                                    <span style="font-size: 0.8rem; opacity: 0.6;">Large</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 3rem; background: var(--bg-light); padding: 3rem; border-radius: var(--radius-lg); border: 2px dashed rgba(0,0,0,0.05); text-align: center;">
-                            <h3 style="margin-bottom: 1.5rem; font-family: var(--font-display);">Interactive Preview</h3>
-                            <div style="background: var(--bg-white); padding: 2rem; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); display: inline-block; text-align: left; max-width: 300px;">
-                                <div style="width: 100%; height: 120px; background: #eee; border-radius: calc(var(--radius-md) / 1.5); margin-bottom: 1rem; overflow: hidden;">
-                                    <img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=400&q=80" style="width: 100%; height: 100%; object-fit: cover;">
-                                </div>
-                                <h4 style="margin-bottom: 0.5rem;">Sample Card Title</h4>
-                                <p style="font-size: 0.9rem; opacity: 0.7; margin-bottom: 1.5rem;">This represents how your content will look with current settings.</p>
-                                <button type="button" class="btn-admin" style="width: 100%; pointer-events: none; opacity: 0.9;">Action Example</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
+            <h3>Upcoming Events</h3>
+            <p class="text-primary" style="font-size:1.8rem;font-weight:700" id="statEvents">0</p>
+          </div>
+          <div class="service-card">
+            <div class="service-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/></svg>
             </div>
-
-            <!-- Theme Settings Panel -->
-            <div id="themePanel" class="admin-panel active">
-                <div class="admin-card">
-                    <h2>Brand Identity</h2>
-                    <form id="themeForm">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Primary Brand Color</label>
-                                <input type="color" id="primaryColor" value="#2563eb">
-                            </div>
-                            <div class="form-group">
-                                <label>Secondary Color</label>
-                                <input type="color" id="secondaryColor" value="#7c3aed">
-                            </div>
-                            <div class="form-group">
-                                <label>Accent Color</label>
-                                <input type="color" id="accentColor" value="#f59e0b">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Logo URL</label>
-                                <input type="url" id="logoUrl">
-                            </div>
-                            <div class="form-group">
-                                <label>Favicon URL</label>
-                                <input type="url" id="faviconUrl">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>YouTube Livestream URL</label>
-                                <input type="url" id="livestreamUrl">
-                            </div>
-                        </div>
-                        <!-- Sermon Background Configuration -->
-                        <h3 style="margin-top: 3rem; margin-bottom: 1.5rem; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 0.5rem; color: var(--text-dark);">Sermon Section Background</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Sermon Background Type</label>
-                                <select id="sermonBgType">
-                                    <option value="image">Image URL</option>
-                                    <option value="color">Solid Color</option>
-                                    <option value="gradient">Gradient CSS</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Sermon Background Image URL</label>
-                                <input type="url" id="sermonBackgroundInput" placeholder="e.g. https://images.unsplash.com/...">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Sermon Background Color</label>
-                                <input type="color" id="sermonBgColor" value="#0f172a">
-                            </div>
-                            <div class="form-group">
-                                <label>Sermon Background Gradient CSS</label>
-                                <input type="text" id="sermonBgGradient" placeholder="e.g. linear-gradient(135deg, #0f172a, #1e293b)" value="linear-gradient(135deg, #0f172a, #1e293b)">
-                            </div>
-                        </div>
-
-                        <!-- Testimony Background Configuration -->
-                        <h3 style="margin-top: 3rem; margin-bottom: 1.5rem; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 0.5rem; color: var(--text-dark);">Testimonies Section</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Testimony Section Background Image URL</label>
-                                <input type="url" id="testimonyBackgroundInput" placeholder="e.g. https://images.unsplash.com/...">
-                            </div>
-                        </div>
-
-                        <!-- Social Media Links (Navbar Admin Config) -->
-                        <h3 style="margin-top: 3rem; margin-bottom: 1.5rem; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 0.5rem; color: var(--text-dark);">Social Media Links (Navbar & Footer)</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Facebook Link</label>
-                                <input type="url" id="socialFacebook" placeholder="https://facebook.com/yourpage">
-                            </div>
-                            <div class="form-group">
-                                <label>Instagram Link</label>
-                                <input type="url" id="socialInstagram" placeholder="https://instagram.com/yourprofile">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Twitter / X Link</label>
-                                <input type="url" id="socialTwitter" placeholder="https://twitter.com/yourhandle">
-                            </div>
-                            <div class="form-group">
-                                <label>YouTube Link</label>
-                                <input type="url" id="socialYoutube" placeholder="https://youtube.com/@yourchannel">
-                            </div>
-                        </div>
-
-                        <!-- Ready to Join the Family Section Configuration -->
-                        <h3 style="margin-top: 3rem; margin-bottom: 1.5rem; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; border-bottom: 2px solid rgba(0,0,0,0.05); padding-bottom: 0.5rem; color: var(--text-dark);">"Ready to Join the Family" Section Settings</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Section Tag</label>
-                                <input type="text" id="joinFamilyTagInput" placeholder="Our Community">
-                            </div>
-                            <div class="form-group">
-                                <label>Section Title</label>
-                                <input type="text" id="joinFamilyTitleInput" placeholder="Ready to Join the Family?">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Section Subtext</label>
-                            <textarea id="joinFamilySubtextInput" rows="2" placeholder="We believe everyone has a home, a purpose, and a family waiting for them here..."></textarea>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Background Style Type</label>
-                                <select id="joinFamilyBgType">
-                                    <option value="color">Solid Color</option>
-                                    <option value="gradient">Gradient CSS</option>
-                                    <option value="image">Image URL</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Background Image URL</label>
-                                <input type="url" id="joinFamilyBgImage" placeholder="e.g. https://images.unsplash.com/...">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Background Solid Color</label>
-                                <input type="color" id="joinFamilyBgColor" value="#0b1329">
-                            </div>
-                            <div class="form-group">
-                                <label>Background Gradient CSS</label>
-                                <input type="text" id="joinFamilyBgGradient" placeholder="e.g. linear-gradient(135deg, #090d16, #111827)" value="linear-gradient(135deg, #090d16, #111827)">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Home Fellowship Link (Required)</label>
-                                <input type="url" id="joinFamilyFellowshipLink" placeholder="e.g. #contact" value="#contact">
-                            </div>
-                            <div class="form-group">
-                                <label>Next Steps / Foundation Class Link</label>
-                                <input type="url" id="joinFamilyNextStepsLink" placeholder="e.g. #contact" value="#contact">
-                            </div>
-                            <div class="form-group">
-                                <label>Serve / Volunteer Link</label>
-                                <input type="url" id="joinFamilyServeLink" placeholder="e.g. #ministries-serve" value="#ministries-serve">
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top: 2.5rem;">
-                            <button type="submit" class="btn-admin">Save Custom Theme Configs</button>
-                        </div>
-                    </form>
-                </div>
+            <h3>Active Quotes</h3>
+            <p class="text-primary" style="font-size:1.8rem;font-weight:700" id="statQuotes">0</p>
+          </div>
+          <div class="service-card">
+            <div class="service-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
             </div>
+            <h3>New Messages</h3>
+            <p class="text-primary" style="font-size:1.8rem;font-weight:700" id="statMessages">0</p>
+          </div>
+        </div>
+        <div style="margin-top:32px" data-reveal>
+          <h3 style="margin-bottom:16px">Recent Activity</h3>
+          <div id="recentActivity" style="color:var(--text-light);font-size:0.95rem">
+            <p>Activity feed will appear here as content is managed.</p>
+          </div>
+        </div>
+      </div>
 
-            <!-- Hero Section Panel -->
-            <div id="heroPanel" class="admin-panel">
-                <div class="admin-card">
-                    <h2>Hero Experience</h2>
-                    <form id="heroForm">
-                        <div class="form-group">
-                            <label>Hero Display Mode</label>
-                            <select id="heroModeSelect">
-                                <option value="single">Single Image</option>
-                                <option value="collage">Collage</option>
-                                <option value="slideshow">Slideshow</option>
-                            </select>
-                        </div>
-                        
-                        <div id="heroImagesContainer">
-                            <!-- Hero images will be managed here -->
-                        </div>
-                        
-                        <button type="button" id="addHeroImageBtn" class="btn-admin" style="background: var(--secondary-color); margin-bottom: 2rem; margin-top: 1rem;">
-                            Add Hero Image
-                        </button>
-
-                        <div class="form-group">
-                            <label>Main Heading</label>
-                            <input type="text" id="heroTitleInput">
-                        </div>
-                        <div class="form-group">
-                            <label>Subheading Text</label>
-                            <input type="text" id="heroSubtextInput">
-                        </div>
-                        <div class="form-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <div class="form-group">
-                                <label>Button 1 (Left) Text</label>
-                                <input type="text" id="heroBtn1Text" placeholder="Livestream">
-                            </div>
-                            <div class="form-group">
-                                <label>Button 1 (Left) Link/ID</label>
-                                <input type="text" id="heroBtn1Link" placeholder="#livestream">
-                            </div>
-                        </div>
-                        <div class="form-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                            <div class="form-group">
-                                <label>Button 2 (Right) Text</label>
-                                <input type="text" id="heroBtn2Text" placeholder="Give Online">
-                            </div>
-                            <div class="form-group">
-                                <label>Button 2 (Right) Link/ID</label>
-                                <input type="text" id="heroBtn2Link" placeholder="#offering">
-                            </div>
-                        </div>
-                        <button type="submit" class="btn-admin">Save Hero Settings</button>
-                    </form>
-                </div>
+      <!-- Theme Panel -->
+      <div class="admin-panel" id="panelTheme">
+        <h3>Theme Customization</h3>
+        <p style="color:var(--text-light);font-size:0.88rem;margin-bottom:24px">Changes apply to the public site in real-time.</p>
+        <form id="themeForm" class="admin-grid">
+          <div class="admin-field">
+            <label>Primary Color</label>
+            <div class="color-input-wrap">
+              <input type="color" id="themePrimary" value="#8B5E3C">
+              <input type="text" id="themePrimaryText" value="#8B5E3C">
             </div>
-
-            <!-- Content Panel -->
-            <div id="contentPanel" class="admin-panel">
-                <div class="admin-card">
-                    <h2>About Us Content</h2>
-                    <form id="contentForm">
-                        <div class="form-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <div class="form-group">
-                                <label>Section Tag</label>
-                                <input type="text" id="aboutTagInput" placeholder="OUR DIVINE COMMISSION">
-                            </div>
-                            <div class="form-group">
-                                <label>Section Title (e.g. "Here on Earth.")</label>
-                                <input type="text" id="aboutTitleInput" placeholder="Here on Earth.">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Mission Statement</label>
-                            <textarea id="missionInput" rows="4"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Mission Image URL</label>
-                            <input type="url" id="missionImageUrl">
-                        </div>
-                        <div class="form-group">
-                            <label>Vision Statement</label>
-                            <textarea id="visionInput" rows="4"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Vision Image URL</label>
-                            <input type="url" id="visionImageUrl">
-                        </div>
-                        <div class="form-group">
-                            <label>The Mandate / Welcome Message</label>
-                            <textarea id="welcomeInput" rows="4"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Portrait Image URL (The Mandate Section)</label>
-                            <input type="url" id="welcomeImageUrl">
-                        </div>
-                        <div class="form-group-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                            <div class="form-group">
-                                <label>Button CTA Text</label>
-                                <input type="text" id="aboutButtonTextInput" placeholder="Learn More">
-                            </div>
-                            <div class="form-group">
-                                <label>Button CTA Link</label>
-                                <input type="text" id="aboutButtonLinkInput" placeholder="#service-times">
-                            </div>
-                        </div>
-                        <button type="submit" class="btn-admin">Save Content</button>
-                    </form>
-                </div>
+          </div>
+          <div class="admin-field">
+            <label>Hover Color</label>
+            <div class="color-input-wrap">
+              <input type="color" id="themeHover" value="#A0724D">
+              <input type="text" id="themeHoverText" value="#A0724D">
             </div>
-
-            <!-- Services Panel -->
-            <div id="servicesPanel" class="admin-panel">
-                <div class="admin-card">
-                    <h2>Service Schedule</h2>
-                    <form id="servicesForm">
-                        <h3 style="margin: 1rem 0; color: var(--primary-color);">Sunday Services</h3>
-                        
-                        <div style="border-bottom: 1px solid #eee; padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
-                            <h4>1st Service</h4>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Title</label>
-                                    <input type="text" id="sunday1Title">
-                                </div>
-                                <div class="form-group">
-                                    <label>Time</label>
-                                    <input type="text" id="sunday1Time">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Description</label>
-                                <textarea id="sunday1Description" rows="2"></textarea>
-                            </div>
-                        </div>
-
-                        <div style="border-bottom: 1px solid #eee; padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
-                            <h4>2nd Service</h4>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Title</label>
-                                    <input type="text" id="sunday2Title">
-                                </div>
-                                <div class="form-group">
-                                    <label>Time</label>
-                                    <input type="text" id="sunday2Time">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Description</label>
-                                <textarea id="sunday2Description" rows="2"></textarea>
-                            </div>
-                        </div>
-
-                        <div style="border-bottom: 1px solid #eee; padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
-                            <h4>3rd Service</h4>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Title</label>
-                                    <input type="text" id="sunday3Title">
-                                </div>
-                                <div class="form-group">
-                                    <label>Time</label>
-                                    <input type="text" id="sunday3Time">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Description</label>
-                                <textarea id="sunday3Description" rows="2"></textarea>
-                            </div>
-                        </div>
-
-                        <div style="border-bottom: 1px solid #eee; padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
-                            <h4>4th Service</h4>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Title</label>
-                                    <input type="text" id="sunday4Title">
-                                </div>
-                                <div class="form-group">
-                                    <label>Time</label>
-                                    <input type="text" id="sunday4Time">
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Description</label>
-                                <textarea id="sunday4Description" rows="2"></textarea>
-                            </div>
-                        </div>
-
-                        <h3 style="margin: 2rem 0 1rem; color: var(--primary-color);">Midweek Service</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Title</label>
-                                <input type="text" id="midweekTitle">
-                            </div>
-                            <div class="form-group">
-                                <label>Time</label>
-                                <input type="text" id="midweekTime">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Description</label>
-                            <textarea id="midweekDescription" rows="2"></textarea>
-                        </div>
-
-                        <h3 style="margin: 2rem 0 1rem; color: var(--primary-color);">Special Programs</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Title</label>
-                                <input type="text" id="specialTitle">
-                            </div>
-                            <div class="form-group">
-                                <label>Time</label>
-                                <input type="text" id="specialTime">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Description</label>
-                            <textarea id="specialDescription" rows="2"></textarea>
-                        </div>
-
-                        <button type="submit" class="btn-admin">Save Schedule</button>
-                    </form>
-                </div>
+          </div>
+          <div class="admin-field">
+            <label>Secondary Color</label>
+            <div class="color-input-wrap">
+              <input type="color" id="themeSecondary" value="#F5E6D3">
+              <input type="text" id="themeSecondaryText" value="#F5E6D3">
             </div>
-
-            <!-- Sermons Panel -->
-            <div id="sermonsPanel" class="admin-panel">
-                <div class="admin-card">
-                    <h2>Sermon Library</h2>
-                    <form id="sermonForm">
-                        <div class="form-group">
-                            <label>Sermon Title</label>
-                            <input type="text" id="sermonTitle" required>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>YouTube Video URL</label>
-                                <input type="url" id="sermonVideoUrl" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Date</label>
-                                <input type="date" id="sermonDate" required>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Description (Optional)</label>
-                            <textarea id="sermonDescription" rows="3"></textarea>
-                        </div>
-                        <button type="submit" class="btn-admin">Add Sermon</button>
-                    </form>
-                    <div id="sermonsList" class="item-list"></div>
-                </div>
+          </div>
+          <div class="admin-field">
+            <label>Accent Color</label>
+            <div class="color-input-wrap">
+              <input type="color" id="themeAccent" value="#C4956A">
+              <input type="text" id="themeAccentText" value="#C4956A">
             </div>
-
-            <!-- Events Panel -->
-            <div id="eventsPanel" class="admin-panel">
-                <div class="admin-card">
-                    <h2>Event Management</h2>
-                    <form id="eventForm">
-                        <div class="form-group">
-                            <label>Event Title</label>
-                            <input type="text" id="eventTitle" required>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Event Image URL</label>
-                                <input type="url" id="eventImageUrl" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Event Date</label>
-                                <input type="date" id="eventDate" required>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Event Description</label>
-                            <textarea id="eventDescription" rows="3" required></textarea>
-                        </div>
-                        <button type="submit" class="btn-admin">Add Event</button>
-                    </form>
-                    <div id="eventsList" class="item-list"></div>
-                </div>
+          </div>
+          <div class="admin-field">
+            <label>Border Radius</label>
+            <div class="range-wrap">
+              <input type="range" id="themeRadius" min="0" max="30" value="12">
+              <span class="range-value" id="themeRadiusVal">12px</span>
             </div>
-
-            <!-- Testimonies Panel -->
-            <div id="testimoniesPanel" class="admin-panel">
-                <div class="admin-card">
-                    <h2>Testimony Moderation</h2>
-                    <h3 style="color: var(--primary-color); margin-bottom: 1rem;">Pending Approval</h3>
-                    <div id="pendingTestimoniesList" class="item-list"></div>
-
-                    <h3 style="color: var(--primary-color); margin: 3rem 0 1rem;">Approved Testimonies</h3>
-                    <div id="approvedTestimoniesList" class="item-list"></div>
-
-                    <h3 style="color: var(--primary-color); margin: 3rem 0 1rem;">Add Testimony Manually</h3>
-                    <form id="testimonyManualForm">
-                        <div class="form-group">
-                            <label>Name</label>
-                            <input type="text" id="testimonyManualName" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Testimony Message</label>
-                            <textarea id="testimonyManualMessage" rows="5" required></textarea>
-                        </div>
-                        <button type="submit" class="btn-admin">Add Testimony</button>
-                    </form>
-                </div>
+          </div>
+          <div class="admin-field">
+            <label>Font Scale</label>
+            <div class="range-wrap">
+              <input type="range" id="themeFontScale" min="80" max="140" value="100">
+              <span class="range-value" id="themeFontScaleVal">1.0</span>
             </div>
-
-            <!-- Quotes Panel -->
-            <div id="quotesPanel" class="admin-panel">
-                <div class="admin-card">
-                    <h2>Manage Daily Quotes</h2>
-                    <form id="quoteForm">
-                        <div class="form-group">
-                            <label for="quoteType">Quote Type</label>
-                            <select id="quoteType">
-                                <option value="text">Text Only</option>
-                                <option value="image">Image Only</option>
-                                <option value="both">Both (Image & Text)</option>
-                            </select>
-                        </div>
-                        <div id="quoteTextInput" class="form-group">
-                            <label for="quoteText">Quote Text</label>
-                            <textarea id="quoteText" rows="3"></textarea>
-                        </div>
-                        <div id="quoteAuthorInput" class="form-group">
-                            <label for="quoteAuthor">Author (Optional)</label>
-                            <input type="text" id="quoteAuthor">
-                        </div>
-                        <div id="quoteImageInput" class="form-group" style="display: none;">
-                            <label for="quoteImageUrl">Image URL</label>
-                            <input type="url" id="quoteImageUrl">
-                        </div>
-                        <button type="submit" class="btn-admin">Add Quote</button>
-                    </form>
-                    <div id="quotesList" class="item-list">
-                        <!-- Quotes will be loaded here -->
-                    </div>
-                </div>
+          </div>
+          <div class="admin-field">
+            <label>Section Spacing</label>
+            <div class="range-wrap">
+              <input type="range" id="themeSpacing" min="40" max="120" value="80">
+              <span class="range-value" id="themeSpacingVal">80px</span>
             </div>
-
-            <!-- Moments Panel -->
-            <div id="momentsPanel" class="admin-panel">
-                <div class="admin-card">
-                    <h2>Manage Moments</h2>
-                    <div class="tabs">
-                        <button class="tab-btn active" data-tab="momentPhoto">Add Photo</button>
-                        <button class="tab-btn" data-tab="momentVideo">Add Video Link</button>
-                    </div>
-                    
-                    <div id="momentPhoto" class="tab-content active">
-                        <form id="momentPhotoForm">
-                            <div class="form-group">
-                                <label for="momentPhotoUrl">Photo URL</label>
-                                <input type="url" id="momentPhotoUrl" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="momentPhotoTitle">Title (Optional)</label>
-                                <input type="text" id="momentPhotoTitle">
-                            </div>
-                            <div class="form-group">
-                                <label for="momentPhotoDesc">Description (Optional)</label>
-                                <textarea id="momentPhotoDesc" rows="2"></textarea>
-                            </div>
-                            <button type="submit" class="btn-admin">Add Photo</button>
-                        </form>
-                    </div>
-
-                    <div id="momentVideo" class="tab-content">
-                        <form id="momentVideoForm">
-                            <div class="form-group">
-                                <label for="momentVideoUrl">Video Link (Social Media/YouTube)</label>
-                                <input type="url" id="momentVideoUrl" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="momentVideoTitle">Title</label>
-                                <input type="text" id="momentVideoTitle" required>
-                            </div>
-                            <button type="submit" class="btn-admin">Add Video Link</button>
-                        </form>
-                    </div>
-
-                    <div id="momentsList" class="item-list">
-                        <!-- Moments will be loaded here -->
-                    </div>
-                </div>
+          </div>
+          <div class="admin-field">
+            <label>Dark Mode</label>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+              <input type="checkbox" id="themeDarkMode">
+              <span style="font-size:0.85rem;color:var(--text-light)">Enable dark theme</span>
             </div>
+          </div>
+          <div class="admin-field full-width">
+            <label>Logo URL</label>
+            <input type="text" id="themeLogo" placeholder="https://example.com/logo.png">
+          </div>
+          <div class="admin-field full-width">
+            <label>Favicon URL</label>
+            <input type="text" id="themeFavicon" placeholder="https://example.com/favicon.png">
+          </div>
+          <div class="admin-field full-width" style="margin-top:16px">
+            <button type="submit" class="btn btn-primary" style="width:auto">Save Theme</button>
+          </div>
+        </form>
+      </div>
 
-            <!-- Messages Panel -->
-            <div id="messagesPanel" class="admin-panel">
-                <div class="admin-card">
-                    <h2>Contact Messages</h2>
-                    <div id="messagesList" class="admin-list">
-                        <!-- Messages will be loaded here -->
-                    </div>
-                </div>
-            </div>
+      <!-- Hero Panel -->
+      <div class="admin-panel" id="panelHero">
+        <h3>Hero Section & Content</h3>
+        <form id="heroForm" class="admin-grid">
+          <div class="admin-field full-width">
+            <label>Headline</label>
+            <input type="text" id="heroHeadline" placeholder="Welcome to Ada George Church">
+          </div>
+          <div class="admin-field full-width">
+            <label>Subtitle</label>
+            <textarea id="heroSubtitle" rows="3" placeholder="A place of worship, fellowship, and spiritual growth"></textarea>
+          </div>
+          <div class="admin-field">
+            <label>Service Time Badge</label>
+            <input type="text" id="heroServiceTime" placeholder="Sundays 9:00 AM & 11:00 AM">
+          </div>
+          <div class="admin-field">
+            <label>Watch Live URL</label>
+            <input type="text" id="heroWatchLive" placeholder="https://youtube.com/watch?v=...">
+          </div>
+          <div class="admin-field full-width">
+            <label>Background Image URL</label>
+            <input type="text" id="heroBgImage" placeholder="https://example.com/hero-bg.jpg">
+          </div>
+          <div class="admin-field full-width" style="margin-top:16px">
+            <button type="submit" class="btn btn-primary" style="width:auto">Save Hero</button>
+          </div>
+        </form>
+      </div>
 
-            <!-- Contact Panel -->
-            <div id="contactPanel" class="admin-panel">
-                <div class="admin-card">
-                    <h2>Contact & Financials</h2>
-                    <form id="contactForm">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Email Address</label>
-                                <input type="email" id="contactEmailAdmin">
-                            </div>
-                            <div class="form-group">
-                                <label>Phone Number</label>
-                                <input type="tel" id="contactPhoneAdmin">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Physical Address</label>
-                            <textarea id="contactAddressAdmin" rows="2"></textarea>
-                        </div>
+      <!-- About Panel -->
+      <div class="admin-panel" id="panelAbout">
+        <h3>About Content</h3>
+        <form id="aboutForm" class="admin-grid">
+          <div class="admin-field full-width">
+            <label>Our Mission</label>
+            <textarea id="aboutMission" rows="4"></textarea>
+          </div>
+          <div class="admin-field full-width">
+            <label>Our Vision</label>
+            <textarea id="aboutVision" rows="4"></textarea>
+          </div>
+          <div class="admin-field full-width">
+            <label>Church History</label>
+            <textarea id="aboutHistory" rows="6"></textarea>
+          </div>
+          <div class="admin-field full-width">
+            <label>Pastors / Leadership</label>
+            <textarea id="aboutPastors" rows="4"></textarea>
+          </div>
+          <div class="admin-field full-width" style="margin-top:16px">
+            <button type="submit" class="btn btn-primary" style="width:auto">Save About</button>
+          </div>
+        </form>
+      </div>
 
-                        <h3 style="margin: 2rem 0 1rem; color: var(--primary-color);">Offering Account Details</h3>
-                        <div id="bankAccountsList">
-                            <!-- Bank accounts will be added here -->
-                        </div>
-                        <button type="button" id="addBankBtn" class="btn-admin" style="background: var(--secondary-color); margin-bottom: 2rem;">
-                            <i data-lucide="plus"></i> Add Another Bank Account
-                        </button>
+      <!-- Contact Info Panel -->
+      <div class="admin-panel" id="panelContactInfo">
+        <h3>Contact Information</h3>
+        <form id="contactInfoForm" class="admin-grid">
+          <div class="admin-field">
+            <label>Address</label>
+            <input type="text" id="ciAddress" placeholder="123 Church Street">
+          </div>
+          <div class="admin-field">
+            <label>Phone</label>
+            <input type="text" id="ciPhone" placeholder="+1 234 567 8900">
+          </div>
+          <div class="admin-field">
+            <label>Email</label>
+            <input type="text" id="ciEmail" placeholder="info@adageorge.org">
+          </div>
+          <div class="admin-field full-width">
+            <label>Map Embed URL</label>
+            <input type="text" id="ciMapUrl" placeholder="https://maps.google.com/...">
+          </div>
+          <div class="admin-field">
+            <label>Facebook URL</label>
+            <input type="text" id="ciFacebook" placeholder="https://facebook.com/...">
+          </div>
+          <div class="admin-field">
+            <label>Instagram URL</label>
+            <input type="text" id="ciInstagram" placeholder="https://instagram.com/...">
+          </div>
+          <div class="admin-field">
+            <label>Twitter / X URL</label>
+            <input type="text" id="ciTwitter" placeholder="https://twitter.com/...">
+          </div>
+          <div class="admin-field">
+            <label>YouTube URL</label>
+            <input type="text" id="ciYoutube" placeholder="https://youtube.com/...">
+          </div>
+          <div class="admin-field full-width" style="margin-top:16px">
+            <button type="submit" class="btn btn-primary" style="width:auto">Save Contact Info</button>
+          </div>
+        </form>
+      </div>
 
-                        <button type="submit" class="btn-admin">Save Information</button>
-                    </form>
-                </div>
-            </div>
+      <!-- Sermons Panel -->
+      <div class="admin-panel" id="panelSermons">
+        <div class="flex justify-between items-center mb-8">
+          <h3 style="margin:0;border:none;padding:0">Sermon Manager</h3>
+          <button class="btn btn-primary btn-sm" id="addSermonBtn">+ Add Sermon</button>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Title</th><th>Speaker</th><th>Date</th><th>Type</th><th>Actions</th></tr></thead>
+            <tbody id="sermonsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
 
-            <!-- Custom Sections Panel -->
-            <div id="custom-sectionsPanel" class="admin-panel">
-                <div class="admin-card">
-                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                        <h2 style="margin-bottom: 0;">Manage Dynamic Custom Sections</h2>
-                        <button type="button" id="addNewSectionBtn" class="btn-admin">
-                            <i data-lucide="plus"></i> Add New Section
-                        </button>
-                    </div>
+      <!-- Events Panel -->
+      <div class="admin-panel" id="panelEvents">
+        <div class="flex justify-between items-center mb-8">
+          <h3 style="margin:0;border:none;padding:0">Event Manager</h3>
+          <button class="btn btn-primary btn-sm" id="addEventBtn">+ Add Event</button>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Title</th><th>Date</th><th>Time</th><th>Location</th><th>Actions</th></tr></thead>
+            <tbody id="eventsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
 
-                    <!-- Sections List -->
-                    <div id="sectionsAdminList" class="admin-list">
-                        <!-- Existing Custom Sections listed here -->
-                    </div>
+      <!-- Quotes Panel -->
+      <div class="admin-panel" id="panelQuotes">
+        <div class="flex justify-between items-center mb-8">
+          <h3 style="margin:0;border:none;padding:0">Daily Quotes Manager</h3>
+          <button class="btn btn-primary btn-sm" id="addQuoteBtn">+ Add Quote</button>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Text / Preview</th><th>Author</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="quotesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
 
-                    <!-- Custom Section Editor Form (initially hidden) -->
-                    <div id="sectionFormContainer" style="display: none; margin-top: 2rem; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 2rem;">
-                        <h3 id="sectionFormTitle" style="margin-bottom: 1.5rem; color: var(--primary-color);">Create New Section</h3>
-                        <form id="customSectionForm" class="admin-form">
-                            <input type="hidden" id="sectionDocId">
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Section Title</label>
-                                    <input type="text" id="sectionTitleVal" placeholder="e.g. Dynamic Ministry Spotlight" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Section Order (Display Sequence)</label>
-                                    <input type="number" id="sectionOrderVal" min="0" value="0" placeholder="e.g. 1" required>
-                                </div>
-                            </div>
+      <!-- Testimonies Panel -->
+      <div class="admin-panel" id="panelTestimonies">
+        <div class="flex justify-between items-center mb-8">
+          <h3 style="margin:0;border:none;padding:0">Testimony Manager</h3>
+          <div class="sermon-filters" style="margin:0">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="pending">Pending</button>
+            <button class="filter-btn" data-filter="approved">Approved</button>
+          </div>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Name</th><th>Date</th><th>Public</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="testimoniesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
 
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Title Coloring Mode</label>
-                                    <select id="sectionTitleColorMode">
-                                        <option value="color">Flat Color</option>
-                                        <option value="gradient">Gradient Accent</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" id="titleColorFormGroup">
-                                    <label>Title Color</label>
-                                    <input type="color" id="sectionTitleColor" value="#1e293b">
-                                </div>
-                                <div class="form-group" id="titleGradientFormGroup" style="display: none;">
-                                    <label>Title Gradient Accent Preset</label>
-                                    <select id="sectionTitleGradientSelect" class="form-control" style="margin-bottom: 0.5rem;">
-                                        <option value="linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)">Blue to Violet (Premium)</option>
-                                        <option value="linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)">Warm Pink to Rose</option>
-                                        <option value="linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)">Electric Cyan to Blue</option>
-                                        <option value="linear-gradient(135deg, #f59e0b 0%, #ec4899 100%)">Amber Sun to Pink</option>
-                                        <option value="custom">Custom CSS Gradient Expression</option>
-                                    </select>
-                                    <input type="text" id="sectionTitleGradientCustom" placeholder="e.g. linear-gradient(135deg, #ff007f, #7f00ff)" style="display: none;">
-                                </div>
-                            </div>
+      <!-- Messages Panel -->
+      <div class="admin-panel" id="panelMessages">
+        <div class="flex justify-between items-center mb-8">
+          <h3 style="margin:0;border:none;padding:0">Messages & Prayer Requests</h3>
+          <div class="sermon-filters" style="margin:0">
+            <button class="filter-btn active" data-filter="new">New</button>
+            <button class="filter-btn" data-filter="read">Read</button>
+            <button class="filter-btn" data-filter="archived">Archived</button>
+          </div>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Subject</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="messagesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
 
-                            <h3 style="margin: 2.5rem 0 1rem; color: var(--primary-color); font-size: 1.25rem;">Background Settings</h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Background Type</label>
-                                    <select id="sectionBgType">
-                                        <option value="color">Solid Base Color</option>
-                                        <option value="gradient">Stunning Background Gradient</option>
-                                        <option value="image">Parallax Background Image</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" id="bgTypeColorGroup">
-                                    <label>Background Color</label>
-                                    <input type="color" id="sectionBgColor" value="#ffffff">
-                                </div>
-                                <div class="form-group" id="bgTypeGradientGroup" style="display: none;">
-                                    <label>Background Gradient Preset</label>
-                                    <select id="sectionBgGradientSelect" style="margin-bottom: 0.5rem;">
-                                        <option value="linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)">Slate Morning Light</option>
-                                        <option value="linear-gradient(135deg, #1e1b4b 0%, #030712 100%)">Royal Indigo Night</option>
-                                        <option value="linear-gradient(135deg, #0f172a 0%, #020617 100%)">Titanium Charcoal</option>
-                                        <option value="linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)">Heavenly Baby Blue</option>
-                                        <option value="custom">Custom CSS Gradient Expression</option>
-                                    </select>
-                                    <input type="text" id="sectionBgGradientCustom" placeholder="e.g. linear-gradient(to right, #ffffff, #eaeaea)" style="display: none;">
-                                </div>
-                                <div class="form-group" id="bgTypeImageGroup" style="display: none;">
-                                    <label>Background Image URL (Responsive Cover + Blur Overlay)</label>
-                                    <input type="url" id="sectionBgImageUrl" placeholder="https://images.unsplash.com/photo-...">
-                                </div>
-                            </div>
+      <!-- Sections Panel -->
+      <div class="admin-panel" id="panelSections">
+        <div class="flex justify-between items-center mb-8">
+          <h3 style="margin:0;border:none;padding:0">Dynamic Section Builder</h3>
+          <div class="flex gap-4">
+            <select id="newSectionType" style="padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)">
+              <option value="text-image">Text & Image</option>
+              <option value="video">Video Highlights</option>
+              <option value="features">Feature Cards</option>
+            </select>
+            <button class="btn btn-primary btn-sm" id="addSectionBtn">+ Add Section</button>
+          </div>
+        </div>
+        <div id="sectionsList"></div>
+      </div>
 
-                            <h3 style="margin: 2.5rem 0 1rem; color: var(--primary-color); font-size: 1.25rem;">Layout Content Format</h3>
-                            <div class="form-group">
-                                <label>Render Format</label>
-                                <select id="sectionContentType">
-                                    <option value="text">Rich Blocks / Plain HTML text</option>
-                                    <option value="cards">Custom Interactive Cards Grid</option>
-                                </select>
-                            </div>
+    </main>
+  </div>
 
-                            <!-- Text Content Layout Option -->
-                            <div id="sectionContentTypeText" style="margin-top: 1.5rem;">
-                                <div class="form-group">
-                                    <label>Formatted Text Content (Accepts normal paragraphs or markup like <strong> or <ul>)</label>
-                                    <textarea id="sectionTextHTMLVal" rows="6" placeholder="<p>Write premium descriptions, updates or biblical teachings...</p>"></textarea>
-                                </div>
-                            </div>
-
-                            <!-- Interactive Cards Grid Layout Option -->
-                            <div id="sectionContentTypeCards" style="display: none; margin-top: 1.5rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; background: #f8fafc; padding: 1rem; border-radius: 12px; border: 1px solid #e2e8f0;">
-                                    <h4 style="margin: 0; font-size: 1.05rem; color: #475569;">Cards Assembly</h4>
-                                    <button type="button" id="addNewCardBtn" class="btn-admin" style="background: var(--secondary-color); font-size: 0.85rem; padding: 0.5rem 1rem; box-shadow: none; margin: 0;">
-                                        <i data-lucide="plus"></i> Add a Card
-                                    </button>
-                                </div>
-                                <div id="cardsListAdminContainer" class="cards-admin-form-list" style="display: flex; flex-direction: column; gap: 1.5rem;">
-                                    <!-- Cards row editors loaded dynamically here -->
-                                </div>
-                            </div>
-
-                            <!-- Form Action Buttons -->
-                            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 3rem; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 1.5rem;">
-                                <button type="button" id="cancelSectionBtn" class="btn-admin" style="background: #e2e8f0; color: #334155; box-shadow: none;">Cancel</button>
-                                <button type="submit" class="btn-admin">Save Section</button>
-                            </div>
-                        </form>
-
-                        <!-- Live Section Preview Container -->
-                        <div id="sectionPreviewWrapper" style="margin-top: 3.5rem; border-top: 2px dashed rgba(37, 99, 235, 0.25); padding-top: 2.5rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; background: #f8fafc; padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
-                                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                    <div style="background: rgba(37, 99, 235, 0.1); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--primary-color);">
-                                        <i data-lucide="eye" style="width: 20px; height: 20px;"></i>
-                                    </div>
-                                    <div>
-                                        <h4 style="margin: 0; color: #1e293b; font-size: 1.1rem; font-weight: 700;">Live Section Preview (Draft)</h4>
-                                        <p style="margin: 0; font-size: 0.8rem; color: #64748b;">See how the custom section looks in real-time</p>
-                                    </div>
-                                </div>
-                                <span style="font-size: 0.75rem; background: #dbeafe; color: #1e40af; font-weight: 700; padding: 4px 10px; border-radius: 50px; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 0.25rem;">
-                                    <span style="display: inline-block; width: 6px; height: 6px; background: #2563eb; border-radius: 50%; animate: pulse;"></span> Interactive Preview
-                                </span>
-                            </div>
-                            
-                            <div id="liveSectionPreviewRender" style="border: 1px solid #cbd5e1; border-radius: 16px; overflow: hidden; background: #ffffff; min-height: 250px; box-shadow: var(--shadow-lg);">
-                                <!-- Live rendered section markup gets updated here -->
-                            </div>
-                            
-                            <div style="margin-top: 1.25rem; text-align: center;">
-                                <p style="font-size: 0.825rem; color: #64748b; margin: 0; display: flex; align-items: center; justify-content: center; gap: 0.35rem;">
-                                    <i data-lucide="sparkles" style="width: 14px; height: 14px; color: #f59e0b;"></i>
-                                    Updates instantly on any edits, title shifts, card insertions, or coloring toggles.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
+  <!-- Sermon Edit Modal -->
+  <div class="modal-backdrop" id="sermonEditModal">
+    <div class="modal-content">
+      <div class="modal-close" data-close="sermonEditModal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+      <h3 id="sermonModalTitle" style="margin-bottom:24px">Add Sermon</h3>
+      <form id="sermonEditForm" class="admin-grid">
+        <div class="admin-field full-width">
+          <label>Title</label>
+          <input type="text" id="sermonTitle" required>
+        </div>
+        <div class="admin-field">
+          <label>Speaker</label>
+          <input type="text" id="sermonSpeaker">
+        </div>
+        <div class="admin-field">
+          <label>Date</label>
+          <input type="date" id="sermonDate">
+        </div>
+        <div class="admin-field full-width">
+          <label>Video URL</label>
+          <input type="text" id="sermonVideoUrl" placeholder="YouTube URL">
+        </div>
+        <div class="admin-field full-width">
+          <label>Audio URL</label>
+          <input type="text" id="sermonAudioUrl" placeholder="MP3/audio URL">
+        </div>
+        <div class="admin-field">
+          <label>Series</label>
+          <input type="text" id="sermonSeries">
+        </div>
+        <div class="admin-field">
+          <label>Type</label>
+          <select id="sermonType">
+            <option value="video">Video</option>
+            <option value="audio">Audio</option>
+            <option value="notes">Notes</option>
+          </select>
+        </div>
+        <div class="admin-field full-width">
+          <label>Notes URL</label>
+          <input type="text" id="sermonNotesUrl" placeholder="PDF link">
+        </div>
+        <div class="admin-field full-width" style="margin-top:16px">
+          <button type="submit" class="btn btn-primary" style="width:auto">Save Sermon</button>
+          <button type="button" class="btn btn-outline" data-close="sermonEditModal" style="width:auto;margin-left:8px">Cancel</button>
+        </div>
+      </form>
     </div>
+  </div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" crossorigin></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js" crossorigin></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js" crossorigin></script>
-    
-    <!-- Icons -->
-    <script src="https://unpkg.com/lucide@0.475.0/dist/umd/lucide.js" crossorigin></script>
-    
-    <!-- Drag and Drop -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-    
-    <!-- App Scripts -->
-    <script src="firebase-config.js"></script>
-    <script src="admin.js"></script>
+  <!-- Event Edit Modal -->
+  <div class="modal-backdrop" id="eventEditModal">
+    <div class="modal-content">
+      <div class="modal-close" data-close="eventEditModal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+      <h3 id="eventModalTitle" style="margin-bottom:24px">Add Event</h3>
+      <form id="eventEditForm" class="admin-grid">
+        <div class="admin-field full-width">
+          <label>Title</label>
+          <input type="text" id="eventTitle" required>
+        </div>
+        <div class="admin-field">
+          <label>Date</label>
+          <input type="date" id="eventDate">
+        </div>
+        <div class="admin-field">
+          <label>Time</label>
+          <input type="text" id="eventTime" placeholder="10:00 AM">
+        </div>
+        <div class="admin-field">
+          <label>Location</label>
+          <input type="text" id="eventLocation">
+        </div>
+        <div class="admin-field">
+          <label>Speaker</label>
+          <input type="text" id="eventSpeaker">
+        </div>
+        <div class="admin-field">
+          <label>Thumbnail URL</label>
+          <input type="text" id="eventThumbnail">
+        </div>
+        <div class="admin-field full-width">
+          <label>Registration Link</label>
+          <input type="text" id="eventRegLink">
+        </div>
+        <div class="admin-field full-width" style="margin-top:16px">
+          <button type="submit" class="btn btn-primary" style="width:auto">Save Event</button>
+          <button type="button" class="btn btn-outline" data-close="eventEditModal" style="width:auto;margin-left:8px">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-    <!-- Defensive Platform Elements to satisfy external or injected share-modal scripts -->
-    <div style="display: none !important;" id="share-btn"></div>
-    <div style="display: none !important;" id="shareBtn"></div>
-    <div style="display: none !important;" id="share-button"></div>
-    <div style="display: none !important;" id="share-modal"></div>
-    <div style="display: none !important;" id="shareModal"></div>
-    <div style="display: none !important;" id="share-link"></div>
-    <div style="display: none !important;" id="share-dialog"></div>
+  <!-- Quote Edit Modal -->
+  <div class="modal-backdrop" id="quoteEditModal">
+    <div class="modal-content">
+      <div class="modal-close" data-close="quoteEditModal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+      <h3 id="quoteModalTitle" style="margin-bottom:24px">Add Quote</h3>
+      <form id="quoteEditForm" class="admin-grid">
+        <div class="admin-field full-width">
+          <label>Scripture / Quote Text</label>
+          <textarea id="quoteText" rows="4" required></textarea>
+        </div>
+        <div class="admin-field">
+          <label>Author / Reference</label>
+          <input type="text" id="quoteAuthor">
+        </div>
+        <div class="admin-field">
+          <label>Type</label>
+          <select id="quoteType">
+            <option value="text">Text Only</option>
+            <option value="image">Image Only</option>
+            <option value="both">Text + Image</option>
+          </select>
+        </div>
+        <div class="admin-field full-width">
+          <label>Image URL</label>
+          <input type="text" id="quoteImageUrl">
+        </div>
+        <div class="admin-field">
+          <label>Active</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+            <input type="checkbox" id="quoteActive" checked>
+            <span style="font-size:0.85rem;color:var(--text-light)">Show on public site</span>
+          </div>
+        </div>
+        <div class="admin-field full-width" style="margin-top:16px">
+          <button type="submit" class="btn btn-primary" style="width:auto">Save Quote</button>
+          <button type="button" class="btn btn-outline" data-close="quoteEditModal" style="width:auto;margin-left:8px">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Section Edit Modal -->
+  <div class="modal-backdrop" id="sectionEditModal">
+    <div class="modal-content">
+      <div class="modal-close" data-close="sectionEditModal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+      <h3 id="sectionModalTitle" style="margin-bottom:24px">Add Section</h3>
+      <form id="sectionEditForm" class="admin-grid">
+        <div class="admin-field">
+          <label>Section Title</label>
+          <input type="text" id="sectionTitle" required>
+        </div>
+        <div class="admin-field">
+          <label>Type</label>
+          <select id="sectionType">
+            <option value="text-image">Text & Image</option>
+            <option value="video">Video Highlights</option>
+            <option value="features">Feature Cards</option>
+          </select>
+        </div>
+        <div class="admin-field full-width">
+          <label>Content / Description</label>
+          <textarea id="sectionContent" rows="5"></textarea>
+        </div>
+        <div class="admin-field">
+          <label>Image URL</label>
+          <input type="text" id="sectionImageUrl">
+        </div>
+        <div class="admin-field">
+          <label>Video URL</label>
+          <input type="text" id="sectionVideoUrl">
+        </div>
+        <div class="admin-field full-width">
+          <label>Feature Cards (JSON array)</label>
+          <textarea id="sectionItems" rows="4" placeholder='[{"title":"Feature","description":"Desc","icon":"star"}]'></textarea>
+        </div>
+        <div class="admin-field">
+          <label>Visible</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+            <input type="checkbox" id="sectionVisible" checked>
+            <span style="font-size:0.85rem;color:var(--text-light)">Show on public site</span>
+          </div>
+        </div>
+        <div class="admin-field full-width" style="margin-top:16px">
+          <button type="submit" class="btn btn-primary" style="width:auto">Save Section</button>
+          <button type="button" class="btn btn-outline" data-close="sectionEditModal" style="width:auto;margin-left:8px">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/firebase-config.js"></script>
+  <script src="js/admin.js"></script>
 </body>
 </html>

@@ -1,775 +1,535 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script>
-      window.onerror = function(msg, url, line, col, error) {
-        console.error('GLOBAL ERROR:', msg || 'Unknown error');
-        return true; // Suppress default browser/iframe reporting
-      };
-      window.onunhandledrejection = function(event) {
-        try {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-        } catch (e) {}
-        const reason = event.reason;
-        console.error('UNHANDLED REJECTION:', reason?.message || String(reason || 'Unknown rejection'));
-      };
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Ada George Church - A place of worship, fellowship, and spiritual growth. Join us for Sunday services, mid-week fellowship, and more.">
+  <title>Ada George Church</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛪</text></svg>" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
 
-      // Defensive patch to prevent injected share-modal or platform scripts from crashing due to missing elements
-      (function() {
-        const createDummyElement = (name) => {
-          const styleProxy = new Proxy({}, {
-            get(t, prop) { return t[prop] || ''; },
-            set(t, prop, val) { t[prop] = val; return true; }
-          });
-          const classListProxy = new Proxy({
-            add: () => {},
-            remove: () => {},
-            toggle: () => {},
-            contains: () => false,
-            replace: () => {}
-          }, {
-            get(t, prop) { return t[prop] || (() => {}); }
-          });
-          const target = {
-            tagName: 'DIV',
-            id: name,
-            className: '',
-            innerHTML: '',
-            outerHTML: '',
-            innerText: '',
-            textContent: '',
-            style: styleProxy,
-            classList: classListProxy,
-            addEventListener: () => {},
-            removeEventListener: () => {},
-            setAttribute: () => {},
-            removeAttribute: () => {},
-            getAttribute: () => null,
-            hasAttribute: () => false,
-            appendChild: (c) => c,
-            removeChild: (c) => c,
-            querySelector: () => null,
-            querySelectorAll: () => [],
-            click: () => {},
-            focus: () => {},
-            blur: () => {}
-          };
-          return new Proxy(target, {
-            get(t, prop) {
-              if (prop in t) return t[prop];
-              if (typeof prop === 'string' && prop.startsWith('on')) return null;
-              return () => {};
-            },
-            set(t, prop, val) { t[prop] = val; return true; }
-          });
-        };
-
-        const isShareModalCaller = () => {
-          try {
-            const stack = new Error().stack || '';
-            return stack.includes('share-modal') || stack.includes('share-btn') || stack.includes('platform');
-          } catch (e) {
-            return false;
-          }
-        };
-
-        const originalGetElementById = document.getElementById;
-        document.getElementById = function(id) {
-          const el = originalGetElementById.call(document, id);
-          if (!el) {
-            const isShare = id && typeof id === 'string' && id.toLowerCase().includes('share');
-            if (isShare || isShareModalCaller()) {
-              console.info(`[Defensive Patch] Mocking missing element with ID: "${id}"`);
-              return createDummyElement(id);
-            }
-          }
-          return el;
-        };
-
-        const originalQuerySelector = document.querySelector;
-        document.querySelector = function(selector) {
-          try {
-            const el = originalQuerySelector.call(document, selector);
-            if (!el) {
-              const isShare = selector && typeof selector === 'string' && selector.toLowerCase().includes('share');
-              if (isShare || isShareModalCaller()) {
-                console.info(`[Defensive Patch] Mocking missing element with selector: "${selector}"`);
-                return createDummyElement(selector);
-              }
-            }
-            return el;
-          } catch (e) {
-            return originalQuerySelector.call(document, selector);
-          }
-        };
-      })();
-    </script>
-    <title>Salvation Ministries Ada George</title>
-    <link rel="icon" type="image/png" href="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=64&q=80">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Firebase v10 SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar" id="navbar">
-        <div class="nav-container">
-            <a href="#" class="nav-logo">
-                <img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=200&q=80" alt="Salvation Ministries Logo">
-                <span>Salvation Ministries</span>
+
+  <!-- Scroll Progress Bar -->
+  <div class="scroll-progress" id="scrollProgress"></div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Site Header -->
+  <header class="site-header" id="siteHeader">
+    <div class="header-inner">
+      <a href="#" class="logo">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .08.703 1.725 1.722 3.656 1 1.261-.472 1.96-1.45 2.344-2.5'/%3E%3Cpath d='M14.267 5.172c0-1.39 1.577-2.493 3.5-2.172 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5'/%3E%3Cpath d='M8 14v.5'/%3E%3Cpath d='M16 14v.5'/%3E%3Cpath d='M11.25 16.25h1.5L12 17l-.75-.75Z'/%3E%3Cpath d='M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444c0-1.061-.162-2.2-.493-3.309m-9.243-6.082A8.801 8.801 0 0 1 12 5c.78 0 1.5.108 2.161.306'/%3E%3C/svg%3E" alt="Ada George Church Logo" width="40" height="40">
+        <span>Ada George Church</span>
+      </a>
+
+      <nav class="nav-links">
+        <a href="#services">Services</a>
+        <a href="#sermons">Sermons</a>
+        <a href="#quotes">Quotes</a>
+        <a href="#moments">Moments</a>
+        <a href="#testimonies">Testimonies</a>
+        <a href="#giving">Giving</a>
+        <a href="#contact">Contact</a>
+      </nav>
+
+      <a href="admin.html" class="nav-admin-btn">Admin</a>
+    </div>
+
+    <!-- Mobile Toggle -->
+    <div class="mobile-toggle" id="mobileToggle">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+    <!-- Mobile Drawer -->
+    <div class="mobile-drawer" id="mobileDrawer">
+      <a href="#services">Services</a>
+      <a href="#sermons">Sermons</a>
+      <a href="#quotes">Quotes</a>
+      <a href="#moments">Moments</a>
+      <a href="#testimonies">Testimonies</a>
+      <a href="#giving">Giving</a>
+      <a href="#contact">Contact</a>
+      <a href="admin.html" class="nav-admin-btn">Admin</a>
+    </div>
+
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" id="mobileOverlay"></div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero" id="hero">
+    <div class="hero-bg" id="heroBg"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <h1 id="heroHeadline">Welcome to Ada George Church</h1>
+      <p class="subtitle" id="heroSubtitle">A place of worship, fellowship, and spiritual growth</p>
+      <div class="hero-badge" id="heroServiceTime">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span>Sundays 9:00 AM &amp; 11:00 AM</span>
+      </div>
+      <div class="hero-actions">
+        <a href="#" class="btn btn-primary" id="heroWatchLive">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Watch Live
+        </a>
+        <a href="#services" class="btn btn-secondary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          Explore
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Services Section -->
+  <section class="church-section" id="services">
+    <div class="container">
+      <div class="section-header">
+        <h2>Our Services</h2>
+        <p>Join us in worship and fellowship throughout the week. There is a place for everyone at Ada George Church.</p>
+        <div class="section-divider"></div>
+      </div>
+
+      <div class="services-grid" id="servicesGrid">
+        <!-- Service Card 1: Sunday Services -->
+        <div class="service-card">
+          <div class="service-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .08.703 1.725 1.722 3.656 1 1.261-.472 1.96-1.45 2.344-2.5"></path><path d="M14.267 5.172c0-1.39 1.577-2.493 3.5-2.172 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5"></path><path d="M8 14v.5"></path><path d="M16 14v.5"></path><path d="M11.25 16.25h1.5L12 17l-.75-.75Z"></path><path d="M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444c0-1.061-.162-2.2-.493-3.309m-9.243-6.082A8.801 8.801 0 0 1 12 5c.78 0 1.5.108 2.161.306"></path></svg>
+          </div>
+          <h3>Sunday Services</h3>
+          <div class="time">9:00 AM &amp; 11:00 AM</div>
+          <div class="location">Main Sanctuary</div>
+        </div>
+
+        <!-- Service Card 2: Mid-Week Fellowship -->
+        <div class="service-card">
+          <div class="service-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+          </div>
+          <h3>Mid-Week Fellowship</h3>
+          <div class="time">Wednesday 6:00 PM</div>
+          <div class="location">Fellowship Hall</div>
+        </div>
+
+        <!-- Service Card 3: Youth Gathering -->
+        <div class="service-card">
+          <div class="service-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+          <h3>Youth Gathering</h3>
+          <div class="time">Friday 5:00 PM</div>
+          <div class="location">Youth Centre</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sermons Section -->
+  <section class="church-section" id="sermons">
+    <div class="container">
+      <div class="section-header">
+        <h2>Sermons &amp; Teachings</h2>
+        <p>Be encouraged and grow in faith through our latest sermons and Bible teachings.</p>
+        <div class="section-divider"></div>
+      </div>
+
+      <div class="sermon-filters" id="sermonFilters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="video">Video</button>
+        <button class="filter-btn" data-filter="audio">Audio</button>
+        <button class="filter-btn" data-filter="notes">Notes</button>
+      </div>
+
+      <div class="sermons-grid" id="sermonsGrid">
+        <!-- Sermon Card 1 -->
+        <div class="sermon-card">
+          <div class="sermon-thumb">
+            <img src="https://picsum.photos/seed/sermon1/600/340" alt="Sermon Thumbnail" loading="lazy">
+            <div class="sermon-play-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </div>
+            <span class="sermon-type-badge">Video</span>
+          </div>
+          <div class="sermon-info">
+            <h3>Walking in Faith</h3>
+            <div class="sermon-meta">
+              <span>Pastor John</span>
+              <span>December 15, 2024</span>
+            </div>
+            <div class="sermon-actions">
+              <button class="btn btn-sm btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Play
+              </button>
+              <button class="btn btn-sm btn-secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Download
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sermon Card 2 -->
+        <div class="sermon-card">
+          <div class="sermon-thumb">
+            <img src="https://picsum.photos/seed/sermon2/600/340" alt="Sermon Thumbnail" loading="lazy">
+            <div class="sermon-play-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </div>
+            <span class="sermon-type-badge">Audio</span>
+          </div>
+          <div class="sermon-info">
+            <h3>The Power of Prayer</h3>
+            <div class="sermon-meta">
+              <span>Rev. Sarah</span>
+              <span>December 8, 2024</span>
+            </div>
+            <div class="sermon-actions">
+              <button class="btn btn-sm btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Play
+              </button>
+              <button class="btn btn-sm btn-secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Download
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Daily Quote Section -->
+  <section class="church-section" id="quotes">
+    <div class="container">
+      <div class="section-header">
+        <h2>Daily Word</h2>
+        <p>Scripture and inspiration for your day</p>
+        <div class="section-divider"></div>
+      </div>
+
+      <div class="quote-card" id="quoteCard">
+        <img class="quote-image" id="quoteImage" src="" alt="" style="display:none;">
+        <p class="quote-text" id="quoteText">For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you, plans to give you hope and a future.</p>
+        <p class="quote-author" id="quoteAuthor">Jeremiah 29:11</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Moments / Gallery Section -->
+  <section class="church-section" id="moments">
+    <div class="container">
+      <div class="section-header">
+        <h2>Church Life &amp; Moments</h2>
+        <p>A glimpse into the vibrant life of our church community.</p>
+        <div class="section-divider"></div>
+      </div>
+
+      <div class="masonry-grid" id="momentsGrid">
+        <div class="masonry-item">
+          <img src="https://picsum.photos/seed/church1/400/500" alt="Church moment" loading="lazy">
+          <div class="caption">Sunday Worship</div>
+        </div>
+        <div class="masonry-item">
+          <img src="https://picsum.photos/seed/church2/400/500" alt="Church moment" loading="lazy">
+          <div class="caption">Youth Conference</div>
+        </div>
+        <div class="masonry-item">
+          <img src="https://picsum.photos/seed/church3/400/500" alt="Church moment" loading="lazy">
+          <div class="caption">Community Outreach</div>
+        </div>
+        <div class="masonry-item">
+          <img src="https://picsum.photos/seed/church4/400/500" alt="Church moment" loading="lazy">
+          <div class="caption">Baptism Sunday</div>
+        </div>
+        <div class="masonry-item">
+          <img src="https://picsum.photos/seed/church5/400/500" alt="Church moment" loading="lazy">
+          <div class="caption">Choir Practice</div>
+        </div>
+        <div class="masonry-item">
+          <img src="https://picsum.photos/seed/church6/400/500" alt="Church moment" loading="lazy">
+          <div class="caption">Christmas Celebration</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonies Section -->
+  <section class="church-section" id="testimonies">
+    <div class="container">
+      <div class="section-header">
+        <h2>Testimonies &amp; Praise Reports</h2>
+        <p>Hear how God is moving in the lives of our members.</p>
+        <div class="section-divider"></div>
+      </div>
+
+      <div class="testimonials-slider" id="testimonialsSlider">
+        <!-- Testimony Card 1 -->
+        <div class="testimony-card">
+          <div class="quote-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path></svg>
+          </div>
+          <p class="content">This church has been a blessing to my family. Since we joined, our lives have been transformed by the power of God's Word and the love of this community.</p>
+          <p class="author">Brother Emmanuel</p>
+          <p class="date">November 2024</p>
+        </div>
+
+        <!-- Testimony Card 2 -->
+        <div class="testimony-card">
+          <div class="quote-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path></svg>
+          </div>
+          <p class="content">I came in broken and hopeless, but through the prayers and teachings here, I found my purpose again. God is truly faithful!</p>
+          <p class="author">Sister Grace</p>
+          <p class="date">October 2024</p>
+        </div>
+      </div>
+
+      <div class="submit-testimony-btn">
+        <button id="openTestimonyModal">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          Share Your Testimony
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Giving Section -->
+  <section class="church-section" id="giving">
+    <div class="container">
+      <div class="section-header">
+        <h2>Give &amp; Support</h2>
+        <p>Your generous giving helps us advance the Kingdom and serve our community.</p>
+        <div class="section-divider"></div>
+      </div>
+
+      <div class="giving-grid">
+        <!-- Online Giving -->
+        <div class="giving-card">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+          <h3>Online Giving</h3>
+          <p>Give securely online using your debit or credit card. Your contribution makes a difference.</p>
+          <button class="btn btn-primary">Give Now</button>
+        </div>
+
+        <!-- Bank Transfer -->
+        <div class="giving-card">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M3 10h18"></path><path d="M5 6l7-3 7 3"></path><path d="M4 10v11"></path><path d="M20 10v11"></path><path d="M8 14v3"></path><path d="M12 14v3"></path><path d="M16 14v3"></path></svg>
+          <h3>Bank Transfer</h3>
+          <p>Transfer directly to our church bank account.</p>
+          <div class="bank-details">
+            <div class="bank-detail"><span class="label">Account Name:</span> <span>Ada George Church</span></div>
+            <div class="bank-detail"><span class="label">Bank:</span> <span>First Bank of Nigeria</span></div>
+            <div class="bank-detail"><span class="label">Account Number:</span> <span>2031234567</span></div>
+            <div class="bank-detail"><span class="label">Sort Code:</span> <span>011151003</span></div>
+          </div>
+        </div>
+
+        <!-- USSD Giving -->
+        <div class="giving-card">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          <h3>USSD Giving</h3>
+          <p>Give conveniently from your mobile phone using USSD code.</p>
+          <div class="ussd-code">*737*50*Amount#</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact Section -->
+  <section class="church-section" id="contact">
+    <div class="container">
+      <div class="section-header">
+        <h2>Get In Touch</h2>
+        <p>We would love to hear from you. Reach out to us with any questions or prayer requests.</p>
+        <div class="section-divider"></div>
+      </div>
+
+      <div class="contact-grid">
+        <!-- Contact Info -->
+        <div class="contact-info-list">
+          <div class="contact-info-item">
+            <div class="icon-box">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            </div>
+            <div>
+              <h4>Address</h4>
+              <p>42 Ada George Road, Port Harcourt, Rivers State, Nigeria</p>
+            </div>
+          </div>
+
+          <div class="contact-info-item">
+            <div class="icon-box">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            </div>
+            <div>
+              <h4>Phone</h4>
+              <p>+234 803 456 7890</p>
+            </div>
+          </div>
+
+          <div class="contact-info-item">
+            <div class="icon-box">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            </div>
+            <div>
+              <h4>Email</h4>
+              <p>info@adageorgechurch.org</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contact Form -->
+        <form class="contact-form" id="contactForm">
+          <div class="form-group">
+            <input type="text" name="name" placeholder="Your Name" required>
+          </div>
+          <div class="form-group">
+            <input type="email" name="email" placeholder="Your Email" required>
+          </div>
+          <div class="form-group">
+            <select name="subject" required>
+              <option value="" disabled selected>Select Subject</option>
+              <option value="general">General Inquiry</option>
+              <option value="prayer">Prayer Request</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <textarea name="message" rows="5" placeholder="Your Message" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Send Message</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dynamic Sections Container -->
+  <div id="dynamicSections"></div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <!-- About Column -->
+        <div class="footer-col">
+          <a href="#" class="logo">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .08.703 1.725 1.722 3.656 1 1.261-.472 1.96-1.45 2.344-2.5'/%3E%3Cpath d='M14.267 5.172c0-1.39 1.577-2.493 3.5-2.172 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5'/%3E%3Cpath d='M8 14v.5'/%3E%3Cpath d='M16 14v.5'/%3E%3Cpath d='M11.25 16.25h1.5L12 17l-.75-.75Z'/%3E%3Cpath d='M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444c0-1.061-.162-2.2-.493-3.309m-9.243-6.082A8.801 8.801 0 0 1 12 5c.78 0 1.5.108 2.161.306'/%3E%3C/svg%3E" alt="Ada George Church" width="36" height="36">
+            <span>Ada George Church</span>
+          </a>
+          <p>A place of worship, fellowship, and spiritual growth. We are committed to spreading the Gospel and serving our community.</p>
+          <div class="social-links">
+            <a href="#" aria-label="Facebook">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
             </a>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <div class="nav-social-desktop" id="navSocialsDesktop" style="display: flex; gap: 0.5rem;"></div>
-                <button class="mobile-toggle" id="mobileToggle">
-                    <i data-lucide="menu"></i>
-                </button>
-            </div>
-            <ul class="nav-menu" id="navMenu">
-                <li><a href="#home" class="nav-link">Home</a></li>
-                <li><a href="#about" class="nav-link">About</a></li>
-                <li><a href="#sermons" class="nav-link">Sermons</a></li>
-                <li><a href="#events" class="nav-link">Events</a></li>
-                <li><a href="#weekly-activities" class="nav-link">Community</a></li>
-                <li><a href="#testimonies" class="nav-link">Testimonies</a></li>
-                <li><a href="#contact" class="nav-link">Contact</a></li>
-                <li class="nav-social-mobile-item" id="navSocialsMobileItem" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.06); width: 100%; display: none; justify-content: center; gap: 1rem;">
-                    <div id="navSocialsMobile" style="display: flex; gap: 1rem;"></div>
-                </li>
-            </ul>
+            <a href="#" aria-label="Instagram">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+            </a>
+            <a href="#" aria-label="Twitter">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg>
+            </a>
+            <a href="#" aria-label="YouTube">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.1c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.43z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
+            </a>
+          </div>
         </div>
-    </nav>
 
-    <!-- Hero Section -->
-    <section class="hero" id="home">
-        <div id="heroBackground" class="hero-background"></div>
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <h1 class="hero-title" id="heroTitle">Welcome to Salvation Ministries Ada George</h1>
-            <p class="hero-subtitle" id="heroSubtext">Where Faith Meets Purpose and Lives are Transformed</p>
-            <div class="hero-btns">
-                <a href="#livestream" class="btn btn-red" id="heroLivestreamBtn">Livestream</a>
-                <a href="#offering" class="btn btn-give-online" id="heroGiveOnlineBtn">Give Online</a>
-            </div>
+        <!-- Quick Links Column -->
+        <div class="footer-col">
+          <h4>Quick Links</h4>
+          <ul>
+            <li><a href="#services">Services</a></li>
+            <li><a href="#sermons">Sermons</a></li>
+            <li><a href="#moments">Events</a></li>
+            <li><a href="#giving">Give</a></li>
+          </ul>
         </div>
-    </section>
 
-    <!-- About Section (The Mandate) -->
-    <section id="about" style="background: var(--bg-light); border-bottom: 1px solid rgba(0, 0, 0, 0.04); padding: 8rem 0;" data-reveal="fade-in">
-        <div class="container">
-            <!-- Two-Column Layout matching Reference Image 2 -->
-            <div class="about-grid" id="aboutSingleLayout" style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 5rem; align-items: center;">
-                
-                <!-- Left Content Column -->
-                <div class="about-content" style="text-align: left;">
-                    <span class="section-tag" id="aboutTag" style="background: rgba(var(--primary-rgb), 0.08); color: var(--primary-color); font-weight: 750; font-size: 0.8rem; padding: 0.45rem 1.15rem; border-radius: var(--radius-full); text-transform: uppercase; letter-spacing: 0.15em; display: inline-block; margin-bottom: 1.25rem;">OUR DIVINE COMMISSION</span>
-                    <h2 class="section-title" id="aboutTitle" style="font-family: var(--font-display); font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 900; color: var(--text-dark); line-height: 1.1; margin-bottom: 1.5rem; letter-spacing: -0.04em;">Here on Earth.</h2>
-                    <div style="width: 60px; height: 4px; background: var(--primary-color); border-radius: var(--radius-full); margin-bottom: 2.5rem; border: none; box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);"></div>
-                    
-                    <p id="welcomeText" style="font-size: 1.15rem; color: var(--text-dark); font-weight: 600; line-height: 1.7; border-left: 4px solid var(--primary-color); padding-left: 1.5rem; margin-bottom: 2.5rem; font-style: italic;">
-                        To establish the Kingdom of God here on earth, and to bring light to those in darkness through preaching the Gospel of Jesus Christ, and to make people realize their full potential.
-                    </p>
-                    
-                    <!-- Sub-elements for data sync -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 3rem; border-top: 1px solid rgba(0,0,0,0.06); padding-top: 2rem;">
-                        <div style="display: flex; gap: 1rem; align-items: flex-start;">
-                            <div style="background: rgba(var(--primary-rgb), 0.08); color: var(--primary-color); padding: 0.6rem; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                <i data-lucide="compass" style="width: 20px; height: 20px;"></i>
-                            </div>
-                            <div>
-                                <h3 style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.25rem;">Our Mission</h3>
-                                <p id="missionText" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 0;">To spread the Gospel of Jesus Christ and transform lives through biblical teaching and community service.</p>
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 1rem; align-items: flex-start;">
-                            <div style="background: rgba(var(--secondary-rgb), 0.08); color: var(--secondary-color); padding: 0.6rem; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                <i data-lucide="eye" style="width: 20px; height: 20px;"></i>
-                            </div>
-                            <div>
-                                <h3 style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.25rem;">Our Vision</h3>
-                                <p id="visionText" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 0;">Building a community of believers who live out their faith with passion and purpose.</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <a href="#service-times" id="aboutButton" class="btn" style="background: var(--secondary-color); color: white; padding: 0.85rem 2.25rem; font-weight: 700; border-radius: 30px; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); font-size: 0.9rem; letter-spacing: 0.02em; text-transform: uppercase;">
-                        Learn More <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>
-                    </a>
-                </div>
-                
-                <!-- Right Portrait Picture Column -->
-                <div class="about-visual-wrapper">
-                    <div class="about-visual" style="height: 620px; border-radius: 24px; overflow: hidden; box-shadow: var(--shadow-lg); position: relative;">
-                        <img id="welcomeImage" src="" alt="About Salvation Ministries" class="about-img loading" style="width: 100%; height: 100%; object-fit: cover;" referrerPolicy="no-referrer">
-                        <div class="about-glow" style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(15, 23, 42, 0.3) 0%, transparent 100%); pointer-events: none;"></div>
-                    </div>
-                </div>
-                
-            </div>
-
-            <!-- Hidden assets to maintain perfect Firebase data-binding sync with zero console exceptions -->
-            <div style="display: none;">
-                <img id="missionImage" src="" alt="">
-                <img id="visionImage" src="" alt="">
-            </div>
+        <!-- Resources Column -->
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <ul>
+            <li><a href="#quotes">Daily Word</a></li>
+            <li><a href="#testimonies">Testimonies</a></li>
+            <li><a href="#moments">Gallery</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ul>
         </div>
-    </section>
 
-    <!-- Upcoming Events Section (Cinematic Dark Grid matching Reference Image 1) -->
-    <section id="events" class="events-section" style="background: #090d16; color: white; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding: 8rem 0;" data-reveal="fade-in">
-        <div class="container">
-            <div class="section-header" style="text-align: center; margin-bottom: 4.5rem;">
-                <span class="section-tag" style="background: rgba(255, 255, 255, 0.08); color: white; border: 1px solid rgba(255,255,255,0.15); font-weight: 750;">UPCOMING PROGRAMS</span>
-                <h2 class="section-title" style="color: white; font-family: var(--font-display); font-weight: 900; font-size: clamp(2rem, 4.5vw, 2.75rem); letter-spacing: -0.03em;">Upcoming events</h2>
-                <p class="section-subtitle" style="color: #94a3b8; max-width: 600px; margin: 0 auto;">Find out God's plan for you. Experience Him uniquely.</p>
-                <div class="section-divider"></div>
-            </div>
-
-            <!-- Beautiful dynamic grid matching layout in image 1 -->
-            <div class="events-grid" id="eventsGrid" data-reveal-stagger style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 2.5rem; margin-top: 3rem;">
-                <!-- Events will be loaded here dynamically as beautiful cards -->
-            </div>
-
-            <div style="margin-top: 5rem; text-align: center;">
-                <a href="https://www.youtube.com/@SalvationMinistries" target="_blank" class="btn btn-red" id="livestreamBtn">
-                    <i data-lucide="tv" style="width: 20px; height: 20px;"></i> Join Livestream
-                </a>
-            </div>
+        <!-- Contact Info Column -->
+        <div class="footer-col">
+          <h4>Contact Info</h4>
+          <p>42 Ada George Road, Port Harcourt, Rivers State, Nigeria</p>
+          <p>+234 803 456 7890</p>
+          <p>info@adageorgechurch.org</p>
         </div>
-    </section>
+      </div>
 
-    <!-- Testimonies Section (Praise Report slider matching Reference Image 3) -->
-    <section id="testimonies" class="testimonies-section" style="padding: 8rem 0; background: var(--bg-light);" data-reveal="fade-in">
-        <div class="container">
-            <div class="section-header" style="text-align: center; margin-bottom: 4.5rem;">
-                <span class="section-tag" style="background: rgba(var(--primary-rgb), 0.08); color: var(--primary-color); font-weight: 750;">PRAISE REPORTS</span>
-                <h2 class="section-title" style="font-family: var(--font-display); font-weight: 900; color: var(--text-dark);">Faith Pillars & Praise Reports</h2>
-                <p class="section-subtitle" style="color: var(--text-light); max-width: 600px; margin: 0 auto;">Real stories of God's faithfulness in the lives of our members.</p>
-                <div class="section-divider"></div>
-            </div>
-            
-            <div class="testimonies-slider-wrapper">
-                <div class="testimonies-slider">
-                    <div class="testimonies-track" id="testimoniesGrid">
-                        <!-- Testimonies will be loaded here as slides -->
-                    </div>
-                </div>
-                
-                <!-- Testimony Progress Dots -->
-                <div class="slider-dots" id="testimonyDots" style="margin-top: 2.5rem;"></div>
-                
-                <div class="slider-nav-btns" style="margin-top: 2rem;">
-                    <button class="slider-arrow prev" id="testimonyPrev" aria-label="Previous Testimony"><i data-lucide="chevron-left"></i></button>
-                    <button class="slider-arrow next" id="testimonyNext" aria-label="Next Testimony"><i data-lucide="chevron-right"></i></button>
-                </div>
-            </div>
+      <div class="footer-bottom">
+        <p>&copy; 2024 Ada George Church. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
 
-            <div class="testimony-cta-block" style="margin-top: 5rem;">
-                <button id="toggleTestimonyBtn" class="btn btn-red" style="margin: 0 auto; display: inline-flex; align-items: center; gap: 0.5rem;">
-                    <i data-lucide="plus-circle"></i>
-                    Share Your Testimony
-                </button>
-                
-                <div id="testimonyFormContainer" class="testimony-form-container">
-                    <div class="glass-form-card" style="margin-top: 3rem;">
-                        <h3 style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text-dark);">Share Your Praise Report</h3>
-                        <p style="margin-bottom: 2.5rem; color: var(--text-muted); font-size: 0.95rem;">Has God done something amazing in your life? We'd love to celebrate with you!</p>
-                        <form id="testimonyForm">
-                            <div class="form-group">
-                                <label for="testimonyName">Full Name</label>
-                                <input type="text" id="testimonyName" placeholder="e.g. Brother John Doe" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="testimonyMessage">Your Story</label>
-                                <textarea id="testimonyMessage" rows="5" placeholder="Describe the wonderful works of God in your life..." required></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-red" style="width: 100%;">
-                                <i data-lucide="check" style="width: 18px; height: 18px;"></i> Submit Testimony
-                            </button>
-                        </form>
-                        <div id="testimonyFeedback" class="form-feedback"></div>
-                    </div>
-                </div>
-            </div>
+  <!-- Video Modal -->
+  <div class="modal-backdrop" id="videoModal">
+    <div class="modal-content">
+      <button class="modal-close" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <div class="video-embed" id="videoEmbed"></div>
+      <h3 id="videoSermonTitle"></h3>
+      <p id="videoSermonSpeaker"></p>
+    </div>
+  </div>
 
-            <div class="empty-state" id="testimoniesEmpty" style="display: none; text-align: center; padding: 4rem 2rem; color: var(--text-muted); font-style: italic;">
-                <p>No testimonies yet. Be the first to share!</p>
-            </div>
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <img id="lightboxImg" src="" alt="">
+    <button class="lightbox-nav prev" aria-label="Previous">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+    </button>
+    <button class="lightbox-nav next" aria-label="Next">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+    </button>
+  </div>
+
+  <!-- Testimony Modal -->
+  <div class="modal-backdrop" id="testimonyModal">
+    <div class="modal-content">
+      <button class="modal-close" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <h3>Share Your Testimony</h3>
+      <form id="testimonyForm">
+        <div class="form-group">
+          <input type="text" name="name" placeholder="Your Name" required>
         </div>
-    </section>
-
-    <!-- Faith Pillars Section (Bento Grid) -->
-    <section id="pillars" style="border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding: 8rem 0; background: var(--bg-white);" data-reveal="fade-in">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag" style="background: rgba(var(--primary-rgb), 0.08); color: var(--primary-color); font-weight: 750;">Our Pillars</span>
-                <h2 class="section-title" style="font-family: var(--font-display); font-weight: 900;">Built Upon Divine Truths & Love</h2>
-                <p class="section-subtitle" style="color: var(--text-light); max-width: 600px; margin: 0 auto;">Guided by the dynamic word of God to bring transformation, salvation, and hope to communities.</p>
-                <div class="section-divider"></div>
-            </div>
-            
-            <div class="pillars-grid" data-reveal-stagger style="margin-top: 3.5rem;">
-                <div class="pillar-card">
-                    <div class="pillar-icon">
-                        <i data-lucide="music"></i>
-                    </div>
-                    <h3>Praise & Worship</h3>
-                    <p>Cultivating vibrant, heartfelt hymns and worship sessions that host God's beautiful, transformative presence.</p>
-                </div>
-                
-                <div class="pillar-card">
-                    <div class="pillar-icon">
-                        <i data-lucide="book-open"></i>
-                    </div>
-                    <h3>Sound Doctrine</h3>
-                    <p>Uncompromising teaching of the Holy Scriptures to equip believers with truth, wisdom, and life purpose.</p>
-                </div>
-                
-                <div class="pillar-card">
-                    <div class="pillar-icon">
-                        <i data-lucide="globe"></i>
-                    </div>
-                    <h3>Global Evangelism</h3>
-                    <p>Passionate fulfillment of the Great Commission through outreach, intentional acts of love, and local initiatives.</p>
-                </div>
-            </div>
+        <div class="form-group">
+          <textarea name="content" rows="5" placeholder="Share what God has done in your life..." required></textarea>
         </div>
-    </section>
-
-    <!-- Daily Quotes Section -->
-    <section id="quotes" class="quotes-section" style="padding: 8rem 0;" data-reveal="scale-up">
-        <div class="container">
-            <h2 class="section-title" style="color: white; margin-bottom: 3rem;">Daily Quotes</h2>
-            <div class="quote-container" id="quoteContainer">
-                <!-- Quote will be loaded here -->
-            </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" name="isPublic" checked>
+            <span>Share publicly (uncheck for private submission)</span>
+          </label>
         </div>
-    </section>
+        <button type="submit" class="btn btn-primary">Submit Testimony</button>
+      </form>
+    </div>
+  </div>
 
-    <!-- Service Times Section (Bento Grid) -->
-    <section style="background: var(--bg-white); border-bottom: 1px solid rgba(0, 0, 0, 0.05);" data-reveal="fade-in">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag">Gatherings</span>
-                <h2 class="section-title">Weekly Service Times</h2>
-                <p class="section-subtitle">Gather with us in person or connect online for life-transforming sessions.</p>
-                <div class="section-divider"></div>
-            </div>
-            
-            <div class="service-times-grid" id="servicesGrid" data-reveal-stagger>
-                <!-- Sunday Services Bento Card (Spans 2 columns on desktop) -->
-                <div class="service-card service-card-sunday" id="sundayServiceCards">
-                    <div class="service-card-header">
-                        <span class="service-card-badge">SUNDAYS</span>
-                        <div class="service-card-icon">
-                            <i data-lucide="sun"></i>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="service-title" style="margin-bottom: 1.5rem;">The Sunday Experience</h3>
-                        
-                        <div class="sunday-schedule-list">
-                            <div class="sunday-schedule-item" id="sundayService1">
-                                <h4 class="service-title" style="font-size: 1.15rem; margin-bottom: 0.15rem;">1st Sunday Service</h4>
-                                <div class="service-time" style="font-size: 0.95rem; margin-bottom: 0.25rem;">6:30 AM</div>
-                                <p class="service-description" style="font-size: 0.85rem;">Early morning worship and word</p>
-                            </div>
-                            
-                            <div class="sunday-schedule-item" id="sundayService2">
-                                <h4 class="service-title" style="font-size: 1.15rem; margin-bottom: 0.15rem;">2nd Sunday Service</h4>
-                                <div class="service-time" style="font-size: 0.95rem; margin-bottom: 0.25rem;">8:00 AM</div>
-                                <p class="service-description" style="font-size: 0.85rem;">Praise, worship and transformation</p>
-                            </div>
-                            
-                            <div class="sunday-schedule-item" id="sundayService3">
-                                <h4 class="service-title" style="font-size: 1.15rem; margin-bottom: 0.15rem;">3rd Sunday Service</h4>
-                                <div class="service-time" style="font-size: 0.95rem; margin-bottom: 0.25rem;">9:30 AM</div>
-                                <p class="service-description" style="font-size: 0.85rem;">Encounter with the word</p>
-                            </div>
-                            
-                            <div class="sunday-schedule-item" id="sundayService4">
-                                <h4 class="service-title" style="font-size: 1.15rem; margin-bottom: 0.15rem;">4th Sunday Service</h4>
-                                <div class="service-time" style="font-size: 0.95rem; margin-bottom: 0.25rem;">11:00 AM</div>
-                                <p class="service-description" style="font-size: 0.85rem;">Closing service of the day</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Midweek Service Card -->
-                <div class="service-card" id="midweekService">
-                    <div class="service-card-header">
-                        <span class="service-card-badge">MIDWEEK</span>
-                        <div class="service-card-icon">
-                            <i data-lucide="moon"></i>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="service-title">Midweek Service</h3>
-                        <div class="service-time">6:00 PM</div>
-                        <p class="service-description">Interactive prayer, deep Bible study, and warm cell fellowship.</p>
-                    </div>
-                </div>
-
-                <!-- Special Programs Card -->
-                <div class="service-card" id="specialService">
-                    <div class="service-card-header">
-                        <span class="service-card-badge">SPECIAL</span>
-                        <div class="service-card-icon">
-                            <i data-lucide="sparkles"></i>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="service-title">Special Programs</h3>
-                        <div class="service-time">Check Events</div>
-                        <p class="service-description">Monthly special revival programs, seminars, and divine assemblies.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Weekly Activities & Life Groups Section -->
-    <section id="weekly-activities" style="background: var(--bg-light); border-top: 1px solid rgba(0, 0, 0, 0.05); border-bottom: 1px solid rgba(0, 0, 0, 0.05);" data-reveal="fade-in">
-        <div class="container">
-            <div class="section-header" style="text-align: center; margin-bottom: 3.5rem;">
-                <span class="teaser-label" style="font-size: 0.85rem; letter-spacing: 0.15em; font-weight: 800; color: var(--secondary-color); text-transform: uppercase;">WEEKLY FELLOWSHIP</span>
-                <h2 class="section-title" style="margin-top: 0.5rem; font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.2;">Engage In <span class="gradient-text font-bold">Community Life</span></h2>
-                <p class="section-subtitle" style="max-width: 600px; margin: 1rem auto 0; color: var(--text-muted);">Step out of the crowd and into community. Join any of our life groups, Bible classes, and empowering fellowships throughout the week.</p>
-            </div>
-
-            <div class="schedule-grid" data-reveal-stagger>
-                <div class="schedule-card">
-                    <span class="schedule-badge">Empowerment</span>
-                    <div class="schedule-time-meta">
-                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
-                        <span>Thursdays &bull; 5:00 PM</span>
-                    </div>
-                    <h3>Week of Spiritual Empowerment</h3>
-                    <p>Dedicate an interactive hour to intense praying, dynamic worship, and deep biblical study to charge your faith weekly.</p>
-                </div>
-
-                <div class="schedule-card">
-                    <span class="schedule-badge">Connect</span>
-                    <div class="schedule-time-meta">
-                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
-                        <span>Sundays &bull; 5:00 PM</span>
-                    </div>
-                    <h3>Home Fellowship Cells</h3>
-                    <p>Small, warm local cell groups meeting in your immediate neighborhood to build deep relationships and discuss spiritual growth.</p>
-                </div>
-
-                <div class="schedule-card">
-                    <span class="schedule-badge">Singles / Youth</span>
-                    <div class="schedule-time-meta">
-                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
-                        <span>Fridays &bull; 6:00 PM</span>
-                    </div>
-                    <h3>Youth & Singles Fellowship</h3>
-                    <p>Empowering young adults and singles through mentorship, active networking, social events, and biblically directed life discussions.</p>
-                </div>
-
-                <div class="schedule-card">
-                    <span class="schedule-badge">Foundations</span>
-                    <div class="schedule-time-meta">
-                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
-                        <span>Saturdays &bull; 8:30 AM</span>
-                    </div>
-                    <h3>Believers & Foundation School</h3>
-                    <p>Designed for newly born-again and new church members to establish solid, clear fundamental answers for their walk of faith.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Sermons Teaser Section -->
-    <section id="sermons" class="sermon-teaser" data-reveal="fade-in" style="background: linear-gradient(135deg, var(--secondary-color) 0%, #0c1221 100%); padding: 8rem 0; text-align: center; color: white;">
-        <div class="container" style="position: relative; z-index: 2;">
-            <span class="section-tag" style="background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.15);">SERMONS</span>
-            <h2 class="section-title" style="color: white; font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 900; margin: 1.5rem 0 2rem; letter-spacing: -0.04em;">Listen to God's Word for You.</h2>
-            <div class="teaser-btns" style="display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;">
-                <a href="sermons.html" class="btn btn-red">
-                    <i data-lucide="play-circle" style="width: 20px; height: 20px;"></i> Watch Sermon
-                </a>
-                <a href="sermons.html" class="btn btn-outline-white">
-                    <i data-lucide="library" style="width: 20px; height: 20px;"></i> All Sermons
-                </a>
-            </div>
-        </div>
-    </section>
-
-
-
-    <!-- Moments Section -->
-    <section id="moments" data-reveal="fade-in">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag">MOMENTS</span>
-                <h2 class="section-title">Community Highlights</h2>
-                <p class="section-subtitle">Capturing the life, spirit, and dynamic fellowship of our church family.</p>
-                <div class="section-divider"></div>
-            </div>
-            
-            <div class="moments-tabs">
-                <button class="moment-tab active" data-type="photos"><i data-lucide="image" style="width: 16px; height: 16px; display: inline; vertical-align: middle; margin-right: 0.5rem;"></i> Photos</button>
-                <button class="moment-tab" data-type="videos"><i data-lucide="video" style="width: 16px; height: 16px; display: inline; vertical-align: middle; margin-right: 0.5rem;"></i> Videos</button>
-            </div>
-
-            <div class="moments-content">
-                <div id="photosGallery" class="moments-gallery active">
-                    <div class="photos-slider-wrapper">
-                        <div class="photos-slider-track-container">
-                            <div class="photos-track" id="photosTrack">
-                                <!-- Photos will be loaded here -->
-                            </div>
-                        </div>
-                        <div class="slider-nav-btns">
-                            <button class="slider-arrow prev" id="momentPrev" aria-label="Previous slide"><i data-lucide="chevron-left"></i></button>
-                            <button class="slider-arrow next" id="momentNext" aria-label="Next slide"><i data-lucide="chevron-right"></i></button>
-                        </div>
-                        <div class="slider-dots" id="momentDots"></div>
-                    </div>
-                </div>
-                <div id="videosGallery" class="moments-gallery">
-                    <div class="videos-grid" id="videosTrack">
-                        <!-- Videos will be loaded here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-
-
-    <!-- Ministries & Volunteer Teams Section -->
-    <section id="ministries-serve" style="background: var(--bg-white); border-top: 1px solid rgba(0, 0, 0, 0.04); border-bottom: 1px solid rgba(0, 0, 0, 0.04);" data-reveal="fade-in">
-        <div class="container">
-            <div class="section-header" style="text-align: center;">
-                <span class="section-tag">GET INVOLVED</span>
-                <h2 class="section-title">Volunteer & Serve with Your Talents</h2>
-                <p class="section-subtitle">Serving is one of the most fulfilling ways to grow spiritually. Discover our active volunteer departments and find where you fit best.</p>
-                <div class="section-divider"></div>
-            </div>
-
-            <div class="pillars-grid" data-reveal-stagger style="margin-top: 4.5rem;">
-                <div class="pillar-card">
-                    <div class="pillar-icon-wrapper" style="background: rgba(239, 68, 68, 0.08); color: #ef4444;">
-                        <i data-lucide="music" style="width: 28px; height: 28px;"></i>
-                    </div>
-                    <h3>Praise & Worship Choir</h3>
-                    <p>Lead the fellowship with uplifting music, hymns, and spiritual choral performances that prepare hearts for God's word.</p>
-                </div>
-
-                <div class="pillar-card">
-                    <div class="pillar-icon-wrapper" style="background: rgba(59, 130, 246, 0.08); color: #3b82f6;">
-                        <i data-lucide="video" style="width: 28px; height: 28px;"></i>
-                    </div>
-                    <h3>Media, Sound & Tech</h3>
-                    <p>Integrate audio, livestream broadcast feeds, camera angles, soundboards, lighting controls, and visual media production.</p>
-                </div>
-
-                <div class="pillar-card">
-                    <div class="pillar-icon-wrapper" style="background: rgba(16, 185, 129, 0.08); color: #10b981;">
-                        <i data-lucide="shield" style="width: 28px; height: 28px;"></i>
-                    </div>
-                    <h3>Ushering, Protocol & Safety</h3>
-                    <p>Offer tidy, warm greetings at arrivals, guide seating in orderly structure, and maintain optimal security throughout church programs.</p>
-                </div>
-
-                <div class="pillar-card">
-                    <div class="pillar-icon-wrapper" style="background: rgba(168, 85, 247, 0.08); color: #a855f7;">
-                        <i data-lucide="heart" style="width: 28px; height: 28px;"></i>
-                    </div>
-                    <h3>Hospitality & Guest Services</h3>
-                    <p>Host guest ministers, address visitor queries, arrange clean refreshments, and coordinate welcoming support systems.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-
-
-    <!-- Ready to Join the Family Section -->
-    <section id="join-family-section" style="background: #0b1329; color: white; padding: var(--section-spacing) 0; position: relative; overflow: hidden;" data-reveal="fade-in">
-        <!-- Subtle decorative ambient background lights (No harsh gradients, very premium and subtle) -->
-        <div style="position: absolute; top: -10%; left: -10%; width: 50%; height: 50%; background: radial-gradient(circle, rgba(var(--primary-rgb), 0.1) 0%, transparent 80%); pointer-events: none; z-index: 1;"></div>
-        <div style="position: absolute; bottom: -10%; right: -10%; width: 50%; height: 50%; background: radial-gradient(circle, rgba(var(--secondary-rgb), 0.08) 0%, transparent 80%); pointer-events: none; z-index: 1;"></div>
-
-        <div class="container" style="position: relative; z-index: 2; max-width: 1200px; margin: 0 auto; padding: 0 1.5rem;">
-            <div class="section-header" style="text-align: center; margin-bottom: 4rem;">
-                <span class="section-tag" id="joinFamilyTag" style="background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); font-size: 0.85rem; padding: 0.5rem 1.25rem; border-radius: 50px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; display: inline-block; margin-bottom: 1.5rem; border: 1px solid rgba(255,255,255,0.1);">Our Community</span>
-                <h2 style="font-family: var(--font-display); font-size: 3rem; font-weight: 900; letter-spacing: -0.04em; color: white; margin-bottom: 1.5rem; line-height: 1.1;" id="joinFamilyTitle">Ready to Join the Family?</h2>
-                <p style="font-size: 1.15rem; color: rgba(255,255,255,0.7); max-width: 680px; margin: 0 auto; line-height: 1.6; font-weight: 500;" id="joinFamilySubtext">We believe everyone has a home, a purpose, and a family waiting for them here. Take your next steps to connect and grow with us.</p>
-                <div class="section-divider" style="background: var(--primary-color); margin-top: 2rem;"></div>
-            </div>
-
-            <div class="join-family-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
-                <!-- Home Fellowship Card -->
-                <div class="join-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 24px; padding: 3rem 2.5rem; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.4s ease; backdrop-filter: blur(12px); position: relative; overflow: hidden; height: 100%;">
-                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--primary-color);"></div>
-                    <div>
-                        <div class="join-card-icon" style="width: 56px; height: 56px; border-radius: 16px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; color: var(--primary-color); margin-bottom: 2rem;">
-                            <i data-lucide="home" style="width: 24px; height: 24px;"></i>
-                        </div>
-                        <h3 style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; color: white; margin-bottom: 1rem; letter-spacing: -0.02em;">Home Fellowship</h3>
-                        <p style="color: rgba(255,255,255,0.65); font-size: 1rem; line-height: 1.6; margin-bottom: 2rem; font-weight: 400;">Connect with a warm fellowship cell close to your house for weekly prayers, joint bible study, and mutual community support.</p>
-                    </div>
-                    <a href="#contact" id="joinFellowshipBtn" class="btn" style="background: var(--primary-color); color: white; text-align: center; border-radius: 12px; padding: 1rem 2rem; font-weight: 700; display: inline-block; transition: all 0.3s ease; box-shadow: 0 4px 14px rgba(var(--primary-rgb), 0.15);">Find a Fellowship Location</a>
-                </div>
-
-                <!-- Foundation School / Welcome Card -->
-                <div class="join-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 24px; padding: 3rem 2.5rem; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.4s ease; backdrop-filter: blur(12px); position: relative; overflow: hidden; height: 100%;">
-                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--secondary-color);"></div>
-                    <div>
-                        <div class="join-card-icon" style="width: 56px; height: 56px; border-radius: 16px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; color: var(--secondary-color); margin-bottom: 2rem;">
-                            <i data-lucide="book-open" style="width: 24px; height: 24px;"></i>
-                        </div>
-                        <h3 style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; color: white; margin-bottom: 1rem; letter-spacing: -0.02em;">Welcome Class & Steps</h3>
-                        <p style="color: rgba(255,255,255,0.65); font-size: 1rem; line-height: 1.6; margin-bottom: 2rem; font-weight: 400;">Understand our core tenets, spiritual guidelines, mission objectives, and discover your personal growth map as a new member.</p>
-                    </div>
-                    <a href="#contact" id="joinNextStepsBtn" class="btn" style="background: var(--secondary-color); color: white; text-align: center; border-radius: 12px; padding: 1rem 2rem; font-weight: 700; display: inline-block; transition: all 0.3s ease; box-shadow: 0 4px 14px rgba(var(--secondary-rgb), 0.15);">Register for Welcome Class</a>
-                </div>
-
-                <!-- Serve Card -->
-                <div class="join-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 24px; padding: 3rem 2.5rem; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.4s ease; backdrop-filter: blur(12px); position: relative; overflow: hidden; height: 100%;">
-                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--accent-color);"></div>
-                    <div>
-                        <div class="join-card-icon" style="width: 56px; height: 56px; border-radius: 16px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; color: var(--accent-color); margin-bottom: 2rem;">
-                            <i data-lucide="users" style="width: 24px; height: 24px;"></i>
-                        </div>
-                        <h3 style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; color: white; margin-bottom: 1rem; letter-spacing: -0.02em;">Become a Volunteer</h3>
-                        <p style="color: rgba(255,255,255,0.65); font-size: 1rem; line-height: 1.6; margin-bottom: 2rem; font-weight: 400;">Contribute to expanding the church community and execute divine service by serving in any of our operational teams.</p>
-                    </div>
-                    <a href="#ministries-serve" id="joinServeBtn" class="btn" style="background: var(--accent-color); color: white; text-align: center; border-radius: 12px; padding: 1rem 2rem; font-weight: 700; display: inline-block; transition: all 0.3s ease; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);">Join a Ministry Team</a>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Offering Section -->
-    <section id="offering" data-reveal="fade-in" style="background: var(--bg-light);">
-        <div class="container">
-            <div class="offering">
-                <h2>Offering & Donations</h2>
-                <p class="offering-desc">Your generous giving helps us continue spreading the Gospel and serving our community both locally and globally.</p>
-                <div class="offering-grid" id="offeringAccounts" data-reveal-stagger>
-                    <!-- Bank accounts will be loaded here dynamically -->
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Dynamic Custom Sections -->
-    <div id="dynamic-sections"></div>
-
-    <!-- Contact Section -->
-    <section id="contact" data-reveal="fade-in">
-        <div class="container">
-            <div class="contact-grid">
-                <div class="contact-info">
-                    <span class="section-tag" style="align-self: flex-start; margin-bottom: 1.5rem;">GET IN TOUCH</span>
-                    <h3>Have Questions or Need Prayer? Connect with Us.</h3>
-                    <p class="contact-desc">Reach out to us and we'll be happy to connect, pray with you, and guide you on your spiritual path.</p>
-                    
-                    <div class="contact-methods">
-                        <div class="contact-method-card">
-                            <div class="contact-method-icon">
-                                <i data-lucide="mail"></i>
-                            </div>
-                            <div class="contact-method-details">
-                                <h4>Email Us</h4>
-                                <p id="contactEmail">adageorgestudio@gmail.com</p>
-                            </div>
-                        </div>
-                        <div class="contact-method-card">
-                            <div class="contact-method-icon">
-                                <i data-lucide="phone"></i>
-                            </div>
-                            <div class="contact-method-details">
-                                <h4>Call Us</h4>
-                                <p id="contactPhone">+234 123 456 7890</p>
-                            </div>
-                        </div>
-                        <div class="contact-method-card">
-                            <div class="contact-method-icon">
-                                <i data-lucide="map-pin"></i>
-                            </div>
-                            <div class="contact-method-details">
-                                <h4>Visit Us</h4>
-                                <p id="contactAddress">Ada George Road, Port Harcourt, Rivers State, Nigeria</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="glass-form-card" style="box-shadow: var(--shadow-lg);">
-                    <h3 style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text-dark);">Send a Message</h3>
-                    <p style="margin-bottom: 2.5rem; color: var(--text-muted); font-size: 0.95rem;">Fill out the form below, and we'll get back to you shortly.</p>
-                    <form id="contactForm">
-                        <div class="form-group">
-                            <label for="contactName">Name</label>
-                            <input type="text" id="contactName" placeholder="e.g. John Doe" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="contactEmailInput">Email Address</label>
-                            <input type="email" id="contactEmailInput" placeholder="e.g. johndoe@example.com" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="contactMessage">Message</label>
-                            <textarea id="contactMessage" rows="5" placeholder="Write your message or prayer request..." required></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-red" style="width: 100%;">
-                            <i data-lucide="send" style="width: 18px; height: 18px;"></i> Send Message
-                        </button>
-                    </form>
-                    <div id="contactFeedback" class="form-feedback"></div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-logo">
-                <img src="https://images.unsplash.com/photo-1438032005730-c779502df39b?w=200&q=80" alt="Salvation Ministries Logo" style="width: 40px; height: 40px; border-radius: 8px;">
-                <span>Salvation Ministries</span>
-            </div>
-            <ul class="footer-nav">
-                <li><a href="#about">About</a></li>
-                <li><a href="#service-times">Service Times</a></li>
-                <li><a href="#sermons">Sermons</a></li>
-                <li><a href="#events">Programs</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
-            <div class="footer-copyright">
-                <p>&copy; 2026 Salvation Ministries Ada George. All rights reserved.</p>
-            </div>
-        </div>
-    </footer>
-
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js" crossorigin></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js" crossorigin></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js" crossorigin></script>
-    
-    <!-- Icons -->
-    <script src="https://unpkg.com/lucide@0.475.0/dist/umd/lucide.js" crossorigin></script>
-    
-    <!-- App Scripts -->
-    <script src="firebase-config.js"></script>
-    <script src="app.js"></script>
-
-    <!-- Defensive Platform Elements to satisfy external or injected share-modal scripts -->
-    <div style="display: none !important;" id="share-btn"></div>
-    <div style="display: none !important;" id="shareBtn"></div>
-    <div style="display: none !important;" id="share-button"></div>
-    <div style="display: none !important;" id="share-modal"></div>
-    <div style="display: none !important;" id="shareModal"></div>
-    <div style="display: none !important;" id="share-link"></div>
-    <div style="display: none !important;" id="share-dialog"></div>
+  <!-- Scripts -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
