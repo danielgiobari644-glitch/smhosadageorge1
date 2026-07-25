@@ -491,13 +491,15 @@ function getLocalDoc(path) {
     }
 }
 
-function setLocalDoc(path, data) {
+function setLocalDoc(path, data, notify = true) {
     try {
         const docs = JSON.parse(localStorage.getItem('adageorge_fallback_docs') || '{}');
         docs[path] = data;
         localStorage.setItem('adageorge_fallback_docs', JSON.stringify(docs));
-        const collectionName = path ? path.split('/')[0] : null;
-        dispatchLocalDataChange(path, collectionName);
+        if (notify) {
+            const collectionName = path ? path.split('/')[0] : null;
+            dispatchLocalDataChange(path, collectionName);
+        }
     } catch (e) {}
 }
 
@@ -510,12 +512,14 @@ function getLocalList(collectionName) {
     }
 }
 
-function setLocalList(collectionName, list) {
+function setLocalList(collectionName, list, notify = true) {
     try {
         const lists = JSON.parse(localStorage.getItem('adageorge_fallback_lists') || '{}');
         lists[collectionName] = list;
         localStorage.setItem('adageorge_fallback_lists', JSON.stringify(lists));
-        dispatchLocalDataChange(null, collectionName);
+        if (notify) {
+            dispatchLocalDataChange(null, collectionName);
+        }
     } catch (e) {}
 }
 
@@ -595,7 +599,7 @@ function wrapDocRef(originalDocRef, collectionName, docId) {
                     const wrappedOnNext = (snap) => {
                         if (unsubscribed) return;
                         if (snap && snap.exists) {
-                            setLocalDoc(path, snap.data());
+                            setLocalDoc(path, snap.data(), false);
                         }
                         onNext(snap);
                     };
@@ -637,7 +641,7 @@ function wrapDocRef(originalDocRef, collectionName, docId) {
                 if (originalDocRef) {
                     const snap = await withTimeout(originalDocRef.get(options), 10000);
                     if (snap.exists) {
-                        setLocalDoc(path, snap.data());
+                        setLocalDoc(path, snap.data(), false);
                     }
                     return snap;
                 }
@@ -757,7 +761,7 @@ function wrapCollectionRef(originalCollRef, collectionName) {
                         snap.forEach(doc => {
                             listToCache.push({ id: doc.id, ...doc.data() });
                         });
-                        setLocalList(collectionName, listToCache);
+                        setLocalList(collectionName, listToCache, false);
                         onNext(snap);
                     };
 
@@ -849,7 +853,7 @@ function wrapCollectionRef(originalCollRef, collectionName) {
                     snap.forEach(doc => {
                         listToCache.push({ id: doc.id, ...doc.data() });
                     });
-                    setLocalList(collectionName, listToCache);
+                    setLocalList(collectionName, listToCache, false);
                     return snap;
                 }
                 throw new Error("No originalCollRef");
@@ -925,7 +929,7 @@ function wrapQuery(originalQuery, collectionName, queryOp) {
                             listToCache.push({ id: doc.id, ...doc.data() });
                         });
                         if (!queryOp || queryOp.type === 'orderBy') {
-                            setLocalList(collectionName, listToCache);
+                            setLocalList(collectionName, listToCache, false);
                         }
                         onNext(snap);
                     };
@@ -1020,7 +1024,7 @@ async function safeGet(ref, operationType = OperationType.READ) {
     try {
         const snap = await ref.get();
         if (snap && snap.exists) {
-            if (ref && ref.path) setLocalDoc(ref.path, snap.data());
+            if (ref && ref.path) setLocalDoc(ref.path, snap.data(), false);
             return snap;
         }
     } catch (error) {
@@ -1059,7 +1063,7 @@ async function safeList(query, operationType = OperationType.LIST) {
                 snap.forEach(doc => {
                     listToCache.push({ id: doc.id, ...doc.data() });
                 });
-                setLocalList(collectionId, listToCache);
+                setLocalList(collectionId, listToCache, false);
             }
             return snap;
         }

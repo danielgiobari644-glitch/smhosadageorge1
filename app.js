@@ -264,6 +264,10 @@ async function loadThemeSettings() {
                         heroBackground.appendChild(slideshow);
                         
                         if (items.length > 1) {
+                            if (heroInterval) {
+                                clearInterval(heroInterval);
+                                heroInterval = null;
+                            }
                             let currentSlide = 0;
                             heroInterval = setInterval(() => {
                                 const slides = slideshow.querySelectorAll('.hero-slide');
@@ -1154,6 +1158,7 @@ function updateMomentSlider() {
 
 let currentTestimonySlide = 0;
 let testimonySlidesCount = 0;
+let globalTestimonyInterval = null;
 
 async function loadTestimonies() {
     try {
@@ -1261,7 +1266,6 @@ function setupTestimonySlider() {
     const prevBtn = document.getElementById('testimonyPrev');
     const nextBtn = document.getElementById('testimonyNext');
     const dotsContainer = document.getElementById('testimonyDots');
-    let testimonyInterval;
 
     // Create slider indication dots
     if (dotsContainer) {
@@ -1280,12 +1284,12 @@ function setupTestimonySlider() {
     }
 
     const startAutoSlide = () => {
-        if (testimonyInterval) {
-            clearInterval(testimonyInterval);
-            testimonyInterval = null;
+        if (globalTestimonyInterval) {
+            clearInterval(globalTestimonyInterval);
+            globalTestimonyInterval = null;
         }
         if (testimonySlidesCount > 1) {
-            testimonyInterval = setInterval(() => {
+            globalTestimonyInterval = setInterval(() => {
                 moveTestimonySlide(1);
             }, 12000); // Friendly read time of 12s per testimony
         }
