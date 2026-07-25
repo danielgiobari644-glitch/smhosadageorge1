@@ -1021,15 +1021,28 @@ async function loadQuotesList() {
         if (!list) return;
         list.innerHTML = '';
  
-        const snapshot = await safeList(db.collection(Collections.QUOTES)
-            .orderBy('createdAt', 'desc'));
+        const snapshot = await safeList(db.collection(Collections.QUOTES));
  
-        if (!snapshot || snapshot.empty) {
+        if (!snapshot || snapshot.empty || !snapshot.docs || snapshot.docs.length === 0) {
             list.innerHTML = '<p class="empty-msg">No quotes added yet</p>';
             return;
         }
 
-        snapshot.forEach(doc => {
+        let docs = [...snapshot.docs];
+        docs.sort((a, b) => {
+            const getMillis = (val) => {
+                if (!val) return 0;
+                if (typeof val.toMillis === 'function') return val.toMillis();
+                if (typeof val.toDate === 'function') return val.toDate().getTime();
+                if (val.seconds) return val.seconds * 1000;
+                if (typeof val === 'number') return val;
+                if (typeof val === 'string') return new Date(val).getTime() || 0;
+                return 0;
+            };
+            return getMillis(b.data().createdAt) - getMillis(a.data().createdAt);
+        });
+
+        docs.forEach(doc => {
             const quote = doc.data();
             const card = document.createElement('div');
             card.className = 'item-card';
@@ -1040,9 +1053,9 @@ async function loadQuotesList() {
             } else if (quote.type === 'both') {
                 contentHtml = `
                     <div style="display: flex; gap: 1rem; align-items: center;">
-                        <img src="${quote.imageUrl}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
+                        ${quote.imageUrl ? `<img src="${quote.imageUrl}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">` : ''}
                         <div>
-                            <p style="font-style: italic; font-size: 1rem;">"${quote.text}"</p>
+                            <p style="font-style: italic; font-size: 1rem;">"${quote.text || ''}"</p>
                             <p style="opacity: 0.7; font-size: 0.8rem;">— ${quote.author || 'Unknown'}</p>
                         </div>
                     </div>
@@ -1050,18 +1063,25 @@ async function loadQuotesList() {
             } else {
                 contentHtml = `
                     <div>
-                        <p style="font-style: italic; font-size: 1.1rem;">"${quote.text}"</p>
+                        <p style="font-style: italic; font-size: 1.1rem;">"${quote.text || ''}"</p>
                         <p style="opacity: 0.7; margin-top: 0.5rem;">— ${quote.author || 'Unknown'}</p>
                     </div>
                 `;
             }
 
+            const isActive = quote.active !== false;
+
             card.innerHTML = `
                 <div class="item-info">
-                    <span style="font-size: 0.7rem; background: var(--bg-card); padding: 2px 8px; border-radius: 10px; margin-bottom: 5px; display: inline-block;">${(quote.type || 'text').toUpperCase()}</span>
+                    <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 0.7rem; background: var(--bg-card); padding: 2px 8px; border-radius: 10px; display: inline-block;">${(quote.type || 'text').toUpperCase()}</span>
+                        <span style="font-size: 0.7rem; background: ${isActive ? '#10b981' : '#6b7280'}; color: white; padding: 2px 8px; border-radius: 10px; font-weight: 600;">${isActive ? 'ACTIVE' : 'HIDDEN'}</span>
+                    </div>
                     ${contentHtml}
                 </div>
-                <div class="item-actions">
+                <div class="item-actions" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button class="btn-admin" style="background: ${isActive ? '#f59e0b' : '#10b981'};" onclick="toggleQuoteActive('${doc.id}', ${!isActive})">${isActive ? 'Hide' : 'Show'}</button>
+                    <button class="btn-admin" style="background: #3b82f6;" onclick="editQuote('${doc.id}')">Edit</button>
                     <button class="btn-admin" style="background: #ef4444;" onclick="deleteQuote('${doc.id}')">Delete</button>
                 </div>
             `;
@@ -1069,6 +1089,76 @@ async function loadQuotesList() {
         });
     } catch (error) {
         console.error('Error loading quotes:', error.message || String(error));
+    }
+}
+
+async function editQuote(id) {
+    try {
+        const doc = await safeGet(db.collection(Collections.QUOTES).doc(id));
+        if (!doc || !doc.exists) return;
+        const quote = doc.data();
+
+        const editIdInput = document.getElementById('quoteEditId');
+        if (editIdInput) editIdInput.value = id;
+
+        const type = quote.type || 'text';
+        document.getElementById('quoteType').value = type;
+        document.getElementById('quoteText').value = quote.text || '';
+        document.getElementById('quoteAuthor').value = quote.author || '';
+        document.getElementById('quoteImageUrl').value = quote.imageUrl || '';
+
+        const textInput = document.getElementById('quoteTextInput');
+        const authorInput = document.getElementById('quoteAuthorInput');
+        const imageInput = document.getElementById('quoteImageInput');
+
+        if (type === 'text') {
+            textInput.style.display = 'block';
+            authorInput.style.display = 'block';
+            imageInput.style.display = 'none';
+        } else if (type === 'image') {
+            textInput.style.display = 'none';
+            authorInput.style.display = 'none';
+            imageInput.style.display = 'block';
+        } else {
+            textInput.style.display = 'block';
+            authorInput.style.display = 'block';
+            imageInput.style.display = 'block';
+        }
+
+        const submitBtn = document.getElementById('quoteSubmitBtn');
+        if (submitBtn) submitBtn.innerText = 'Update Quote';
+        const cancelBtn = document.getElementById('quoteCancelBtn');
+        if (cancelBtn) cancelBtn.style.display = 'inline-block';
+
+        document.getElementById('quoteForm')?.scrollIntoView({ behavior: 'smooth' });
+    } catch (error) {
+        console.error('Error fetching quote for edit:', error);
+    }
+}
+
+function resetQuoteForm() {
+    const editIdInput = document.getElementById('quoteEditId');
+    if (editIdInput) editIdInput.value = '';
+    const form = document.getElementById('quoteForm');
+    if (form) form.reset();
+
+    document.getElementById('quoteTextInput').style.display = 'block';
+    document.getElementById('quoteAuthorInput').style.display = 'block';
+    document.getElementById('quoteImageInput').style.display = 'none';
+
+    const submitBtn = document.getElementById('quoteSubmitBtn');
+    if (submitBtn) submitBtn.innerText = 'Add Quote';
+    const cancelBtn = document.getElementById('quoteCancelBtn');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+}
+
+async function toggleQuoteActive(id, newStatus) {
+    try {
+        await db.collection(Collections.QUOTES).doc(id).update({ active: newStatus });
+        loadQuotesList();
+    } catch (error) {
+        console.error('Error toggling quote active status:', error);
+        alert('Error updating quote status');
     }
 }
 
@@ -1357,6 +1447,7 @@ function setupForms() {
     document.getElementById('quoteForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
+            const editId = document.getElementById('quoteEditId')?.value;
             const quoteData = {
                 type: document.getElementById('quoteType').value,
                 text: document.getElementById('quoteText').value,
@@ -1365,18 +1456,21 @@ function setupForms() {
                 active: true,
                 createdAt: firebase.firestore.Timestamp.now()
             };
-            await db.collection(Collections.QUOTES).add(quoteData);
-            e.target.reset();
-            // Reset visibility
-            document.getElementById('quoteTextInput').style.display = 'block';
-            document.getElementById('quoteAuthorInput').style.display = 'block';
-            document.getElementById('quoteImageInput').style.display = 'none';
-            
+
+            if (editId) {
+                delete quoteData.createdAt;
+                await db.collection(Collections.QUOTES).doc(editId).update(quoteData);
+                alert('Quote updated successfully!');
+            } else {
+                await db.collection(Collections.QUOTES).add(quoteData);
+                alert('Quote added successfully!');
+            }
+
+            resetQuoteForm();
             loadQuotesList();
-            alert('Quote added successfully!');
         } catch (error) {
-            console.error('Error adding quote:', error.message || String(error));
-            alert('Error adding quote');
+            console.error('Error saving quote:', error.message || String(error));
+            alert('Error saving quote');
         }
     });
 

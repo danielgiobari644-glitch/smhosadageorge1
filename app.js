@@ -668,16 +668,36 @@ async function loadAboutContent() {
 // Daily Quotes
 // ========================================
 
+let globalQuoteInterval = null;
+
 async function loadQuotes() {
     try {
         const container = document.getElementById('quoteContainer');
         if (!container) return;
 
-        // Fetch quotes ordered by creation date
-        const snapshot = await safeList(db.collection(Collections.QUOTES)
-            .orderBy('createdAt', 'desc'));
+        // Fetch quotes safely without requiring orderBy index
+        const snapshot = await safeList(db.collection(Collections.QUOTES));
 
-        const validDocs = snapshot && snapshot.docs ? snapshot.docs.filter(doc => doc.data().active !== false) : [];
+        let validDocs = snapshot && snapshot.docs ? snapshot.docs.filter(doc => doc.data().active !== false) : [];
+
+        // Sort in memory safely by createdAt desc
+        validDocs.sort((a, b) => {
+            const getMillis = (val) => {
+                if (!val) return 0;
+                if (typeof val.toMillis === 'function') return val.toMillis();
+                if (typeof val.toDate === 'function') return val.toDate().getTime();
+                if (val.seconds) return val.seconds * 1000;
+                if (typeof val === 'number') return val;
+                if (typeof val === 'string') return new Date(val).getTime() || 0;
+                return 0;
+            };
+            return getMillis(b.data().createdAt) - getMillis(a.data().createdAt);
+        });
+
+        if (globalQuoteInterval) {
+            clearInterval(globalQuoteInterval);
+            globalQuoteInterval = null;
+        }
 
         if (validDocs.length > 0) {
             let activeIndex = 0;
@@ -689,13 +709,13 @@ async function loadQuotes() {
                 if (quote.type === 'image' && quote.imageUrl) {
                     quoteContent = `
                         <div class="quote-slide">
-                            <img src="${quote.imageUrl}" class="quote-item-image img-loaded" alt="Daily Quote" loading="eager">
+                            <img src="${quote.imageUrl}" class="quote-item-image img-loaded" alt="Daily Quote" loading="eager" style="max-height: 420px; width: auto; max-width: 100%; border-radius: 16px; object-fit: cover; margin: 0 auto; display: block;">
                         </div>
                     `;
                 } else if (quote.type === 'both') {
                     quoteContent = `
                         <div class="quote-slide">
-                            ${quote.imageUrl ? `<img src="${quote.imageUrl}" class="quote-item-image img-loaded" alt="Daily Quote" style="margin-bottom: 2rem; max-height: 380px; width: auto; border-radius: 16px; object-fit: cover;" loading="eager">` : ''}
+                            ${quote.imageUrl ? `<img src="${quote.imageUrl}" class="quote-item-image img-loaded" alt="Daily Quote" style="margin-bottom: 2rem; max-height: 380px; width: auto; max-width: 100%; border-radius: 16px; object-fit: cover; margin-left: auto; margin-right: auto; display: block;" loading="eager">` : ''}
                             ${quote.text ? `<blockquote>"${quote.text}"</blockquote>` : ''}
                             ${quote.author ? `<cite>— ${quote.author}</cite>` : ''}
                         </div>
@@ -739,16 +759,32 @@ async function loadQuotes() {
                         e.stopPropagation();
                         activeIndex = (activeIndex - 1 + validDocs.length) % validDocs.length;
                         renderQuoteAt(activeIndex);
+                        resetQuoteTimer();
                     });
                     document.getElementById('nextQuoteBtn')?.addEventListener('click', (e) => {
                         e.stopPropagation();
                         activeIndex = (activeIndex + 1) % validDocs.length;
                         renderQuoteAt(activeIndex);
+                        resetQuoteTimer();
                     });
                 }
             };
 
+            const resetQuoteTimer = () => {
+                if (globalQuoteInterval) {
+                    clearInterval(globalQuoteInterval);
+                    globalQuoteInterval = null;
+                }
+                if (validDocs.length > 1) {
+                    globalQuoteInterval = setInterval(() => {
+                        activeIndex = (activeIndex + 1) % validDocs.length;
+                        renderQuoteAt(activeIndex);
+                    }, 10000);
+                }
+            };
+
             renderQuoteAt(0);
+            resetQuoteTimer();
         } else {
             container.innerHTML = `
                 <div class="quote-slide">

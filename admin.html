@@ -1152,6 +1152,7 @@
                 <div class="admin-card">
                     <h2>Manage Daily Quotes</h2>
                     <form id="quoteForm">
+                        <input type="hidden" id="quoteEditId">
                         <div class="form-group">
                             <label for="quoteType">Quote Type</label>
                             <select id="quoteType">
@@ -1172,7 +1173,10 @@
                             <label for="quoteImageUrl">Image URL</label>
                             <input type="url" id="quoteImageUrl">
                         </div>
-                        <button type="submit" class="btn-admin">Add Quote</button>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button type="submit" id="quoteSubmitBtn" class="btn-admin">Add Quote</button>
+                            <button type="button" id="quoteCancelBtn" class="btn-admin" style="display: none; background: #6b7280;" onclick="resetQuoteForm()">Cancel Edit</button>
+                        </div>
                     </form>
                     <div id="quotesList" class="item-list">
                         <!-- Quotes will be loaded here -->
