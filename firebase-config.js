@@ -139,9 +139,9 @@ const auth = app.auth();
 console.log("Firestore initialized for project:", firebaseConfig.projectId);
 
 try {
-  // Standard settings for reliability
+  // Standard settings for reliability (capped cache size to prevent memory bloat)
   const settings = {
-    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+    cacheSizeBytes: 50 * 1024 * 1024
   };
   
   // Use long polling in sandboxed environments to bypass gRPC blocks
@@ -462,21 +462,16 @@ try {
     console.warn("localStorage not available:", e.message);
 }
 
-async function withTimeout(promise, ms = 10000) {
+function withTimeout(promise, ms = 10000) {
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
         timeoutId = setTimeout(() => {
             reject(new Error("Timeout"));
         }, ms);
     });
-    try {
-        const result = await Promise.race([promise, timeoutPromise]);
-        clearTimeout(timeoutId);
-        return result;
-    } catch (err) {
-        clearTimeout(timeoutId);
-        throw err;
-    }
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+        if (timeoutId) clearTimeout(timeoutId);
+    });
 }
 
 function dispatchLocalDataChange(path, collectionName) {

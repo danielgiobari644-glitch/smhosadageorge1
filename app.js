@@ -507,6 +507,11 @@ function setupRevealAnimations() {
         document.addEventListener('DOMContentLoaded', runInitialScan, { once: true });
     }
 
+    if (window.revealMutationObserverInstance) {
+        window.revealMutationObserverInstance.disconnect();
+        window.revealMutationObserverInstance = null;
+    }
+
     // Setup Mutation Observer to auto-observe any newly appended dynamic content from Firestore
     const mutationObserver = new MutationObserver((mutations) => {
         let hasNewElements = false;
@@ -528,6 +533,8 @@ function setupRevealAnimations() {
             requestAnimationFrame(() => scanAndObserve());
         }
     });
+
+    window.revealMutationObserverInstance = mutationObserver;
 
     if (document.body) {
         mutationObserver.observe(document.body, {
@@ -957,8 +964,13 @@ function setupEventSlider() {
 }
 
 function resetEventInterval() {
-    if (eventSliderInterval) clearInterval(eventSliderInterval);
-    eventSliderInterval = setInterval(() => moveEventSlide(1), 5000);
+    if (eventSliderInterval) {
+        clearInterval(eventSliderInterval);
+        eventSliderInterval = null;
+    }
+    if (eventSlidesCount > 1) {
+        eventSliderInterval = setInterval(() => moveEventSlide(1), 5000);
+    }
 }
 
 function moveEventSlide(direction) {
@@ -1102,8 +1114,13 @@ function setupMomentSlider() {
 }
 
 function resetMomentInterval() {
-    if (momentSliderInterval) clearInterval(momentSliderInterval);
-    momentSliderInterval = setInterval(() => moveMomentSlide(1), 6000);
+    if (momentSliderInterval) {
+        clearInterval(momentSliderInterval);
+        momentSliderInterval = null;
+    }
+    if (momentSlidesCount > 1) {
+        momentSliderInterval = setInterval(() => moveMomentSlide(1), 6000);
+    }
 }
 
 function moveMomentSlide(direction) {
@@ -1263,10 +1280,15 @@ function setupTestimonySlider() {
     }
 
     const startAutoSlide = () => {
-        if (testimonyInterval) clearInterval(testimonyInterval);
-        testimonyInterval = setInterval(() => {
-            moveTestimonySlide(1);
-        }, 12000); // Friendly read time of 12s per testimony
+        if (testimonyInterval) {
+            clearInterval(testimonyInterval);
+            testimonyInterval = null;
+        }
+        if (testimonySlidesCount > 1) {
+            testimonyInterval = setInterval(() => {
+                moveTestimonySlide(1);
+            }, 12000); // Friendly read time of 12s per testimony
+        }
     };
 
     if (prevBtn) prevBtn.onclick = () => {
@@ -1791,47 +1813,56 @@ function initImagePopAnimations(root = document) {
     images.forEach(handleImagePop);
 }
 
-// Auto-observe all current and dynamically added images
+// Auto-observe all current and dynamically added images safely
 if (typeof window !== 'undefined') {
+    let appImageObserverInstance = null;
     const startImageObserver = () => {
         initImagePopAnimations();
-        const observer = new MutationObserver(() => {
+        if (appImageObserverInstance) {
+            appImageObserverInstance.disconnect();
+            appImageObserverInstance = null;
+        }
+        appImageObserverInstance = new MutationObserver(() => {
             initImagePopAnimations();
         });
         if (document.body) {
-            observer.observe(document.body, { childList: true, subtree: true });
+            appImageObserverInstance.observe(document.body, { childList: true, subtree: true });
         }
     };
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', startImageObserver);
+        document.addEventListener('DOMContentLoaded', startImageObserver, { once: true });
     } else {
         startImageObserver();
     }
 }
 
-// Re-sync all site data live when admin changes are saved
+// Re-sync all site data live when admin changes are saved (debounced to avoid memory lag)
+let reloadAllAppDataTimeout = null;
 async function reloadAllAppData() {
-    try {
-        await Promise.all([
-            loadThemeSettings(),
-            loadAboutContent(),
-            loadQuotes(),
-            loadServiceTimes(),
-            loadSermons(),
-            loadEvents(),
-            loadMoments(),
-            loadTestimonies(),
-            loadContactInfo(),
-            loadOfferingDetails(),
-            loadCustomSections()
-        ]);
-        if (window.revealObserverInstance) {
-            scanAndObserve();
+    if (reloadAllAppDataTimeout) clearTimeout(reloadAllAppDataTimeout);
+    reloadAllAppDataTimeout = setTimeout(async () => {
+        try {
+            await Promise.all([
+                loadThemeSettings(),
+                loadAboutContent(),
+                loadQuotes(),
+                loadServiceTimes(),
+                loadSermons(),
+                loadEvents(),
+                loadMoments(),
+                loadTestimonies(),
+                loadContactInfo(),
+                loadOfferingDetails(),
+                loadCustomSections()
+            ]);
+            if (window.revealObserverInstance) {
+                scanAndObserve();
+            }
+        } catch (err) {
+            console.error('Error auto-syncing admin changes:', err);
         }
-    } catch (err) {
-        console.error('Error auto-syncing admin changes:', err);
-    }
+    }, 150);
 }
 
 if (typeof window !== 'undefined') {

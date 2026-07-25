@@ -2480,24 +2480,33 @@ function initImagePopAnimationsAdmin(root = document) {
 }
 
 if (typeof window !== 'undefined') {
+    let adminImageObserverInstance = null;
     const startAdminImageObserver = () => {
         initImagePopAnimationsAdmin();
-        const observer = new MutationObserver(() => {
+        if (adminImageObserverInstance) {
+            adminImageObserverInstance.disconnect();
+            adminImageObserverInstance = null;
+        }
+        adminImageObserverInstance = new MutationObserver(() => {
             initImagePopAnimationsAdmin();
         });
         if (document.body) {
-            observer.observe(document.body, { childList: true, subtree: true });
+            adminImageObserverInstance.observe(document.body, { childList: true, subtree: true });
         }
     };
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', startAdminImageObserver);
+        document.addEventListener('DOMContentLoaded', startAdminImageObserver, { once: true });
     } else {
         startAdminImageObserver();
     }
 
+    let syncAdminDebounceTimeout = null;
     const syncAdminState = () => {
-        if (typeof loadAllData === 'function') loadAllData();
+        if (syncAdminDebounceTimeout) clearTimeout(syncAdminDebounceTimeout);
+        syncAdminDebounceTimeout = setTimeout(() => {
+            if (typeof loadAllData === 'function') loadAllData();
+        }, 150);
     };
 
     window.addEventListener('localstorage_data_changed', syncAdminState);
