@@ -666,6 +666,12 @@ function wrapDocRef(originalDocRef, collectionName, docId) {
                 const existing = getLocalDoc(path) || {};
                 mergedData = { ...existing, ...data };
             }
+            try {
+                const deletedArr = JSON.parse(localStorage.getItem('adageorge_deleted_ids') || '[]');
+                const updatedDeleted = deletedArr.filter(id => id !== `${collectionName}/${docId}` && id !== path);
+                localStorage.setItem('adageorge_deleted_ids', JSON.stringify(updatedDeleted));
+            } catch(e) {}
+
             setLocalDoc(path, mergedData);
             updateItemInList(collectionName, docId, mergedData, options && options.merge);
 
@@ -683,6 +689,12 @@ function wrapDocRef(originalDocRef, collectionName, docId) {
         update: async (data) => {
             const existing = getLocalDoc(path) || {};
             const mergedData = { ...existing, ...data };
+            try {
+                const deletedArr = JSON.parse(localStorage.getItem('adageorge_deleted_ids') || '[]');
+                const updatedDeleted = deletedArr.filter(id => id !== `${collectionName}/${docId}` && id !== path);
+                localStorage.setItem('adageorge_deleted_ids', JSON.stringify(updatedDeleted));
+            } catch(e) {}
+
             setLocalDoc(path, mergedData);
             updateItemInList(collectionName, docId, mergedData, true);
 
@@ -702,6 +714,13 @@ function wrapDocRef(originalDocRef, collectionName, docId) {
                 const docs = JSON.parse(localStorage.getItem('adageorge_fallback_docs') || '{}');
                 delete docs[path];
                 localStorage.setItem('adageorge_fallback_docs', JSON.stringify(docs));
+
+                const deleted = JSON.parse(localStorage.getItem('adageorge_deleted_ids') || '[]');
+                const itemKey = `${collectionName}/${docId}`;
+                if (!deleted.includes(itemKey)) {
+                    deleted.push(itemKey);
+                    localStorage.setItem('adageorge_deleted_ids', JSON.stringify(deleted));
+                }
             } catch (e) {}
             
             if (collectionName) {
@@ -790,6 +809,12 @@ function wrapCollectionRef(originalCollRef, collectionName) {
         add: async (data) => {
             const docId = Math.random().toString(36).substring(2, 15);
             
+            try {
+                const deletedArr = JSON.parse(localStorage.getItem('adageorge_deleted_ids') || '[]');
+                const updatedDeleted = deletedArr.filter(id => id !== `${collectionName}/${docId}`);
+                localStorage.setItem('adageorge_deleted_ids', JSON.stringify(updatedDeleted));
+            } catch(e) {}
+
             const list = getLocalList(collectionName);
             const newItem = { id: docId, ...data };
             list.unshift(newItem);
@@ -799,7 +824,8 @@ function wrapCollectionRef(originalCollRef, collectionName) {
             let docRef = null;
             if (!isFirestoreOffline && originalCollRef) {
                 try {
-                    docRef = await withTimeout(originalCollRef.add(data), 12000);
+                    await withTimeout(originalCollRef.doc(docId).set(data), 12000);
+                    docRef = wrapDocRef(originalCollRef.doc(docId), collectionName, docId);
                 } catch (err) {
                     console.warn(`Collection.add failed/timed out for ${collectionName}, using local fallback`);
                     isFirestoreOffline = true;
@@ -1021,24 +1047,32 @@ async function safeGet(ref, operationType = OperationType.READ) {
     if (!ref) {
         return { exists: false, id: 'unknown', ref: null, data: () => null, get: () => null };
     }
+    const localDoc = ref && ref.path ? getLocalDoc(ref.path) : null;
     try {
         const snap = await ref.get();
         if (snap && snap.exists) {
-            if (ref && ref.path) setLocalDoc(ref.path, snap.data(), false);
-            return snap;
+            const remoteData = snap.data() || {};
+            const merged = localDoc ? { ...remoteData, ...localDoc } : remoteData;
+            if (ref && ref.path) setLocalDoc(ref.path, merged, false);
+            return {
+                exists: true,
+                id: snap.id,
+                ref: snap.ref || ref,
+                data: () => merged,
+                get: (field) => merged ? merged[field] : undefined
+            };
         }
     } catch (error) {
         console.warn(`Firestore get failed for path: ${ref ? ref.path : 'unknown'}. Using local fallback.`);
     }
 
-    const fallbackDoc = ref && ref.path ? getLocalDoc(ref.path) : null;
-    if (fallbackDoc) {
+    if (localDoc) {
         return {
             exists: true,
             id: ref ? ref.id : 'unknown',
             ref: ref,
-            data: () => fallbackDoc,
-            get: (field) => fallbackDoc[field]
+            data: () => localDoc,
+            get: (field) => localDoc[field]
         };
     }
 
@@ -1054,25 +1088,51 @@ async function safeGet(ref, operationType = OperationType.READ) {
 // Global list fetching helper
 async function safeList(query, operationType = OperationType.LIST) {
     const collectionId = getCollectionId(query);
+    const localList = collectionId ? getLocalList(collectionId) : [];
+    let deletedSet = new Set();
+    try {
+        const deletedArr = JSON.parse(localStorage.getItem('adageorge_deleted_ids') || '[]');
+        deletedSet = new Set(deletedArr);
+    } catch(e) {}
+
+    let mergedList = [...localList].filter(item => item && item.id && !deletedSet.has(`${collectionId}/${item.id}`));
 
     try {
         const snap = await query.get();
         if (snap && !snap.empty) {
+            const remoteDocsMap = new Map();
+            snap.forEach(doc => {
+                if (!deletedSet.has(`${collectionId}/${doc.id}`)) {
+                    remoteDocsMap.set(doc.id, doc.data());
+                }
+            });
+
+            const mergedMap = new Map();
+            // Local items take precedence
+            localList.forEach(item => {
+                if (item && item.id && !deletedSet.has(`${collectionId}/${item.id}`)) {
+                    const remoteData = remoteDocsMap.get(item.id) || {};
+                    mergedMap.set(item.id, { ...remoteData, ...item });
+                }
+            });
+
+            // Add remote items not in local list
+            remoteDocsMap.forEach((remoteData, id) => {
+                if (!mergedMap.has(id) && !deletedSet.has(`${collectionId}/${id}`)) {
+                    mergedMap.set(id, { id, ...remoteData });
+                }
+            });
+
+            mergedList = Array.from(mergedMap.values());
             if (collectionId) {
-                const listToCache = [];
-                snap.forEach(doc => {
-                    listToCache.push({ id: doc.id, ...doc.data() });
-                });
-                setLocalList(collectionId, listToCache, false);
+                setLocalList(collectionId, mergedList, false);
             }
-            return snap;
         }
     } catch (error) {
         console.warn(`Firestore query failed for collection: ${collectionId}. Using local fallback.`);
     }
 
-    const fallbackList = collectionId ? getLocalList(collectionId) : [];
-    const mockDocs = fallbackList.map(item => {
+    const mockDocs = mergedList.map(item => {
         const itemData = { ...item };
         delete itemData.id;
         return {

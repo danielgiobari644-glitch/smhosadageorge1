@@ -66,47 +66,56 @@
 
 /* Custom Element Color Connectors */
 .nav-link {
-    color: var(--navbar-text-color);
+    color: var(--navbar-text-color) !important;
+}
+.site-header, .navbar {
+    background-color: var(--bg-navbar, #ffffff) !important;
 }
 .hero-title {
-    color: var(--hero-title-color);
-    background: none;
-    -webkit-text-fill-color: var(--hero-title-color);
+    color: var(--hero-title-color, #ffffff) !important;
+    background: none !important;
+    -webkit-text-fill-color: var(--hero-title-color, #ffffff) !important;
+    -webkit-background-clip: border-box !important;
 }
 .hero-subtitle {
-    color: var(--hero-subtext-color);
+    color: var(--hero-subtext-color, #cbd5e1) !important;
 }
 .quote-section {
-    background-color: var(--quote-bg-color);
+    background-color: var(--quote-bg-color, #030712) !important;
+    color: var(--quote-text-color, #ffffff) !important;
 }
 .quote-slide blockquote {
-    color: var(--quote-text-color);
-    background: none;
-    -webkit-text-fill-color: var(--quote-text-color);
+    color: var(--quote-text-color, #ffffff) !important;
+    background: none !important;
+    -webkit-text-fill-color: var(--quote-text-color, #ffffff) !important;
+    -webkit-background-clip: border-box !important;
 }
 .quote-slide cite {
-    color: var(--quote-author-color);
+    color: var(--quote-author-color, var(--primary-color)) !important;
 }
-.sermon-teaser, .sermon-teaser h2, .sermon-teaser p, #sermonHeader {
-    color: var(--sermon-text-color);
+.sermon-teaser, .sermon-teaser h2, .sermon-teaser p, #sermonHeader, #sermonTitle, #sermonDescription {
+    color: var(--sermon-text-color, #ffffff) !important;
 }
 .testimonies-section {
-    background-color: var(--testimony-bg-color);
-    color: var(--testimony-text-color);
+    background-color: var(--testimony-bg-color, var(--bg-light)) !important;
+    color: var(--testimony-text-color, var(--text-dark)) !important;
 }
-#join-family-section, #join-family-section h2, #join-family-section p {
-    color: var(--join-family-text-color);
+.testimonies-section h2, .testimonies-section p, .testimony-card-text, .testimony-card-author h4, .testimony-card-author p {
+    color: var(--testimony-text-color, var(--text-dark));
+}
+#join-family-section, #join-family-section h2, #join-family-section p, .join-family-tag {
+    color: var(--join-family-text-color, #ffffff) !important;
 }
 .site-footer {
-    background-color: var(--footer-bg-color);
-    color: var(--footer-text-color);
+    background-color: var(--footer-bg-color, #090d16) !important;
+    color: var(--footer-text-color, #cbd5e1) !important;
 }
-.site-footer a, .site-footer p {
-    color: var(--footer-text-color);
+.site-footer a, .site-footer p, .site-footer h3, .site-footer span, .site-footer li {
+    color: var(--footer-text-color, #cbd5e1);
 }
 .btn-primary, .btn-hero-primary, .btn-admin {
-    background-color: var(--btn-bg-color, var(--primary-color));
-    color: var(--btn-text-color, #ffffff);
+    background-color: var(--btn-bg-color, var(--primary-color)) !important;
+    color: var(--btn-text-color, #ffffff) !important;
 }
 
 /* --- DARK MODE OVERRIDES --- */
@@ -538,15 +547,16 @@ body.dark-mode .mobile-toggle:hover {
     margin-bottom: 1.75rem;
     letter-spacing: -0.04em;
     line-height: 1.05;
-    background: linear-gradient(to right, #ffffff, #f1f5f9, #cbd5e1);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--hero-title-color, #ffffff);
+    background: none;
+    -webkit-text-fill-color: var(--hero-title-color, #ffffff);
+    -webkit-background-clip: border-box;
     text-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
 }
 
 .hero-subtitle {
     font-size: clamp(1.05rem, 2.2vw, 1.4rem);
-    color: #94a3b8;
+    color: var(--hero-subtext-color, #cbd5e1);
     margin-bottom: 3.5rem;
     max-width: 720px;
     margin-left: auto;
@@ -1016,12 +1026,16 @@ body.dark-mode .service-card:hover {
 }
 
 /* --- DAILY QUOTES & INSPIRATION (GLASSMORPHIC FRAME) --- */
-.quote-section {
-    background-color: #030712;
-    color: white;
+.quotes-section, .quote-section, #quotes {
+    background-color: var(--quote-bg-color, #030712) !important;
+    color: var(--quote-text-color, #ffffff) !important;
     overflow: hidden;
     position: relative;
     padding: 9rem 0;
+}
+
+#quotesHeaderTitle {
+    color: var(--quote-text-color, #ffffff) !important;
 }
 
 .quote-background-glow {
@@ -1060,9 +1074,10 @@ body.dark-mode .service-card:hover {
     line-height: 1.4;
     letter-spacing: -0.02em;
     margin-bottom: 2rem;
-    background: linear-gradient(135deg, #ffffff, #f1f5f9, #cbd5e1);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--quote-text-color, #ffffff);
+    background: none;
+    -webkit-text-fill-color: var(--quote-text-color, #ffffff);
+    -webkit-background-clip: border-box;
 }
 
 .quote-slide cite {
@@ -1070,7 +1085,7 @@ body.dark-mode .service-card:hover {
     font-size: 0.9rem;
     font-weight: 700;
     letter-spacing: 0.1em;
-    color: var(--primary-color);
+    color: var(--quote-author-color, var(--primary-color));
     text-transform: uppercase;
     font-style: normal;
 }

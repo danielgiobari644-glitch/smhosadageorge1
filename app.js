@@ -123,11 +123,16 @@ function darkenColor(hex, percent = 12) {
 
 let heroInterval = null;
 
-async function loadThemeSettings() {
+async function loadThemeSettings(directThemeData = null) {
     try {
-        const doc = await safeGet(db.collection(Collections.SETTINGS).doc('theme'));
-        if (doc && doc.exists) {
-            const theme = doc.data();
+        let theme = directThemeData;
+        if (!theme) {
+            const doc = await safeGet(db.collection(Collections.SETTINGS).doc('theme'));
+            if (doc && doc.exists) {
+                theme = doc.data();
+            }
+        }
+        if (theme) {
             
             if (heroInterval) {
                 clearInterval(heroInterval);
@@ -324,8 +329,26 @@ async function loadThemeSettings() {
             }
 
             const testimoniesSection = document.querySelector('.testimonies-section');
-            if (testimoniesSection && theme.testimonyBackground) {
-                testimoniesSection.style.cssText += `; background-image: url('${theme.testimonyBackground}') !important;`;
+            if (testimoniesSection) {
+                if (theme.testimonyBgColor) testimoniesSection.style.backgroundColor = theme.testimonyBgColor;
+                if (theme.testimonyTextColor) testimoniesSection.style.color = theme.testimonyTextColor;
+                if (theme.testimonyBackground) testimoniesSection.style.backgroundImage = `url('${theme.testimonyBackground}')`;
+            }
+
+            const quotesSection = document.querySelector('.quotes-section, .quote-section, #quotes');
+            if (quotesSection) {
+                if (theme.quoteBgColor) quotesSection.style.backgroundColor = theme.quoteBgColor;
+                if (theme.quoteTextColor) quotesSection.style.color = theme.quoteTextColor;
+            }
+            const quotesHeaderTitle = document.getElementById('quotesHeaderTitle');
+            if (quotesHeaderTitle && theme.quoteTextColor) {
+                quotesHeaderTitle.style.color = theme.quoteTextColor;
+            }
+
+            const footerEl = document.querySelector('.site-footer');
+            if (footerEl) {
+                if (theme.footerBgColor) footerEl.style.backgroundColor = theme.footerBgColor;
+                if (theme.footerTextColor) footerEl.style.color = theme.footerTextColor;
             }
 
             // Update Join Family section styling and links
@@ -670,13 +693,13 @@ async function loadAboutContent() {
 
 let globalQuoteInterval = null;
 
-async function loadQuotes() {
+async function loadQuotes(directSnapshot = null) {
     try {
         const container = document.getElementById('quoteContainer');
         if (!container) return;
 
         // Fetch quotes safely without requiring orderBy index
-        const snapshot = await safeList(db.collection(Collections.QUOTES));
+        const snapshot = directSnapshot || await safeList(db.collection(Collections.QUOTES));
 
         let validDocs = snapshot && snapshot.docs ? snapshot.docs.filter(doc => doc.data().active !== false) : [];
 
@@ -1590,8 +1613,8 @@ function setupContactForm() {
 function setupRealtimeListeners() {
     db.collection(Collections.SETTINGS).doc('theme')
         .onSnapshot((doc) => {
-            if (doc.exists) {
-                loadThemeSettings();
+            if (doc && doc.exists) {
+                loadThemeSettings(doc.data());
             }
         }, (error) => handleFirestoreError(error, OperationType.GET, Collections.SETTINGS));
     
@@ -1627,8 +1650,10 @@ function setupRealtimeListeners() {
         }, (error) => handleFirestoreError(error, OperationType.LIST, Collections.EVENTS));
 
     db.collection(Collections.QUOTES)
-        .onSnapshot(() => {
-            loadQuotes();
+        .onSnapshot((snapshot) => {
+            if (snapshot) {
+                loadQuotes(snapshot);
+            }
         }, (error) => handleFirestoreError(error, OperationType.LIST, Collections.QUOTES));
 
     db.collection(Collections.MOMENTS)
